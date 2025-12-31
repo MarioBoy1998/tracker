@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Table Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+html,body{margin:0;height:100%;background:#0e0e0e;color:#fff;font-family:Arial;overflow:hidden}
+#status{position:fixed;top:10px;right:10px;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:bold}
+#status.connected{background:#22c55e;color:#000}
+#status.disconnected{background:#ef4444;color:#fff}
+#rooms{display:flex;flex-direction:column;height:100%;width:100%;padding-top:40px;box-sizing:border-box}
+.room{flex:1;border-bottom:2px solid #333;padding:20px;display:flex;flex-direction:column;min-height:0}
+.room:last-child{border-bottom:0}
+.room.offline{background:#1a0000}
+.room-header{text-align:center;margin-bottom:16px}
+.room-header h2{margin:0;font-size:28px;font-weight:700}
+.room-status{font-size:14px;opacity:0.7;margin-top:4px}
+.room-status.offline{color:#ef4444}
+.room-status.online{color:#22c55e}
+.tables{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;align-items:center;align-content:center;overflow-y:auto;flex:1}
+.table{border-radius:50%;background:#22c55e;
+display:flex;align-items:center;justify-content:center;flex-direction:column;font-weight:700;
+position:relative;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all 0.3s ease}
+.table.inactive{background:#ef4444;animation:pulse 2s infinite}
+.table .id{font-size:1em}
+.table .rssi{font-size:0.5em;font-weight:400;margin-top:0.2em;opacity:0.8}
+.empty{opacity:.4;text-align:center;padding:40px;width:100%;font-size:20px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
+</style>
+<!-- MQTT.js library -->
+<script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
+</head>
+<body>
+
+<div id="status" class="disconnected">Connecting...</div>
+<div id="rooms"></div>
+
+<script>
+// 🔥 КОНФІГУРАЦІЯ - ЗМІНИТИ НА СВОЇ ДАНІ!
+const MQTT_HOST = 'f3fbfed182654a99bd2d329ffb0aef99.s1.eu.hivemq.cloud'; // Твій HiveMQ host
+const MQTT_USERNAME = 'tracker_viewer';
+const MQTT_PASSWORD = 'Qwerty1234!';
+const MQTT_TOPIC = 'tracker/state';
+
+// Підключення до MQTT
+const client = mqtt.connect(MQTT_HOST, {
+  username: tracker_viewer,
+  password: Qwerty1234!,
+  clean: true,
+  connectTimeout: 4000,
+  reconnectPeriod: 1000,
+});
+
+// Глобальні дані
+let trackerData = {};
+
+// Коли підключились
+client.on('connect', function () {
+  console.log('MQTT Connected!');
+  document.getElementById('status').className = 'connected';
+  document.getElementById('status').textContent = 'Connected';
+  
+  // Підписуємось на топік
+  client.subscribe(MQTT_TOPIC, function (err) {
+    if (!err) {
+      console.log('Subscribed to:', MQTT_TOPIC);
+    }
+  });
+});
+
+// Коли отримали повідомлення
+client.on('message', function (topic, message) {
+  console.log('Received:', topic, message.toString());
+  
+  try {
+    trackerData = JSON.parse(message.toString());
+    renderDashboard();
+  } catch (e) {
+    console.error('JSON parse error:', e);
+  }
+});
+
+// Коли відключились
+client.on('disconnect', function () {
+  console.log('MQTT Disconnected');
+  document.getElementById('status').className = 'disconnected';
+  document.getElementById('status').textContent = 'Disconnected';
+});
+
+client.on('error', function (error) {
+  console.error('MQTT Error:', error);
+  document.getElementById('status').className = 'disconnected';
+  document.getElementById('status').textContent = 'Error';
+});
+
+// Розрахунок розміру столиків
+function calcSize(count) {
+  if (count === 0) return 80;
+  if (count <= 5) return 120;
+  if (count <= 10) return 100;
+  if (count <= 20) return 80;
+  if (count <= 40) return 60;
+  return 50;
+}
+
+// Відобразити dashboard
+function renderDashboard() {
+  if (!trackerData.rooms) {
+    document.getElementById('rooms').innerHTML = '<div class="empty">No data yet...</div>';
+    return;
+  }
+  
+  let html = '';
+  
+  Object.keys(trackerData.rooms).forEach(roomName => {
+    let room = trackerData.rooms[roomName];
+    let tables = room.tables || {};
+    let count = Object.keys(tables).length;
+    let size = calcSize(count);
+    let isActive = room.active !== false;
+    let roomClass = isActive ? 'room' : 'room offline';
+    let statusClass = isActive ? 'online' : 'offline';
+    let statusText = isActive ? 'Online' : 'Offline';
+    
+    html += `<div class="${roomClass}">
+      <div class="room-header">
+        <h2>${roomName}</h2>
+        <div class="room-status ${statusClass}">${statusText}</div>
+      </div>
+      <div class="tables">`;
+    
+    if (count === 0) {
+      html += '<div class="empty">No tables</div>';
+    } else {
+      Object.keys(tables).forEach(tableId => {
+        let table = tables[tableId];
+        let inactive = table.inactive || false;
+        let rssi = table.rssi || 0;
+        
+        html += `<div class="table ${inactive ? 'inactive' : ''}" 
+                 style="width:${size}px;height:${size}px;font-size:${size/4}px">
+          <div class="id">${tableId}</div>
+          <div class="rssi">${rssi} dBm</div>
+        </div>`;
+      });
+    }
+    
+    html += '</div></div>';
+  });
+  
+  document.getElementById('rooms').innerHTML = html;
+}
+
+// Початкове відображення
+renderDashboard();
+</script>
+
+</body>
+</html>
