@@ -6,9 +6,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 html,body{margin:0;height:100%;background:#0e0e0e;color:#fff;font-family:Arial;overflow:hidden}
-#status{position:fixed;top:10px;right:10px;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:bold}
+#status{position:fixed;top:10px;right:10px;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:bold;z-index:1000}
 #status.connected{background:#22c55e;color:#000}
 #status.disconnected{background:#ef4444;color:#fff}
+#status.connecting{background:#f59e0b;color:#000}
 #rooms{display:flex;flex-direction:column;height:100%;width:100%;padding-top:40px;box-sizing:border-box}
 .room{flex:1;border-bottom:2px solid #333;padding:20px;display:flex;flex-direction:column;min-height:0}
 .room:last-child{border-bottom:0}
@@ -28,71 +29,199 @@ position:relative;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all 0.3s ease
 .empty{opacity:.4;text-align:center;padding:40px;width:100%;font-size:20px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
 </style>
-<!-- MQTT.js library -->
 <script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
 </head>
 <body>
 
-<div id="status" class="disconnected">Connecting...</div>
+<div id="status" class="connecting">Connecting...</div>
 <div id="rooms"></div>
 
 <script>
-// 🔥 КОНФІГУРАЦІЯ - ЗМІНИТИ НА СВОЇ ДАНІ!
-const MQTT_HOST = 'f3fbfed182654a99bd2d329ffb0aef99.s1.eu.hivemq.cloud'; // Твій HiveMQ host
-const MQTT_USERNAME = 'tracker_viewer';
-const MQTT_PASSWORD = 'Qwerty1234!';
-const MQTT_TOPIC = 'tracker/state';
+// 🔥 КОНФІГУРАЦІЯ
+const MQTT_HOST = 'wss://f3fbfed182654a99bd2d329ffb0aef99.s1.eu.hivemq.cloud:8884/mqtt';
+const MQTT_USERNAME = 'tracker-viewer';
+const MQTT_PASSWORD = 'ViewerSecret456';
+const MQTT_TOPIC_RAW = 'tracker/raw/#';      // Підписуємось на всі raw topics
+const MQTT_TOPIC_PROCESSED = 'tracker/state'; // Публікуємо оброблені дані сюди
 
 // Підключення до MQTT
 const client = mqtt.connect(MQTT_HOST, {
-  username: tracker_viewer,
-  password: Qwerty1234!,
+  username: MQTT_USERNAME,
+  password: MQTT_PASSWORD,
   clean: true,
   connectTimeout: 4000,
   reconnectPeriod: 1000,
 });
 
 // Глобальні дані
-let trackerData = {};
+let rawDataByMaster = {}; // {master_id: {room, timestamp, tables: []}}
+let processedData = {};   // Результат обробки
+let lastProcessTime = 0;
 
 // Коли підключились
 client.on('connect', function () {
-  console.log('MQTT Connected!');
+  console.log('✅ MQTT Connected!');
   document.getElementById('status').className = 'connected';
   document.getElementById('status').textContent = 'Connected';
   
-  // Підписуємось на топік
-  client.subscribe(MQTT_TOPIC, function (err) {
+  // Підписуємось на всі raw topics від Masters
+  client.subscribe(MQTT_TOPIC_RAW, function (err) {
     if (!err) {
-      console.log('Subscribed to:', MQTT_TOPIC);
+      console.log('📡 Subscribed to:', MQTT_TOPIC_RAW);
+    }
+  });
+  
+  // Підписуємось на processed data (для інших користувачів)
+  client.subscribe(MQTT_TOPIC_PROCESSED, function (err) {
+    if (!err) {
+      console.log('📊 Subscribed to:', MQTT_TOPIC_PROCESSED);
     }
   });
 });
 
 // Коли отримали повідомлення
 client.on('message', function (topic, message) {
-  console.log('Received:', topic, message.toString());
+  console.log('📨 Received:', topic);
   
   try {
-    trackerData = JSON.parse(message.toString());
-    renderDashboard();
+    const data = JSON.parse(message.toString());
+    
+    // Якщо це raw data від Master
+    if (topic.startsWith('tracker/raw/')) {
+      const masterId = topic.split('/')[2];
+      console.log(`  Master ${masterId}: ${data.tables ? data.tables.length : 0} tables`);
+      
+      rawDataByMaster[masterId] = {
+        room: data.room,
+        timestamp: data.timestamp,
+        tables: data.tables || [],
+        receivedAt: Date.now()
+      };
+      
+      // Обробити дані якщо пройшло >2 секунди
+      if (Date.now() - lastProcessTime > 2000) {
+        processData();
+        lastProcessTime = Date.now();
+      }
+    }
+    
+    // Якщо це processed data (від іншого browser або з cloud function)
+    if (topic === MQTT_TOPIC_PROCESSED) {
+      console.log('  Processed data received');
+      processedData = data;
+      renderDashboard();
+    }
+    
   } catch (e) {
-    console.error('JSON parse error:', e);
+    console.error('❌ JSON parse error:', e);
   }
 });
 
 // Коли відключились
 client.on('disconnect', function () {
-  console.log('MQTT Disconnected');
+  console.log('⚠️ MQTT Disconnected');
   document.getElementById('status').className = 'disconnected';
   document.getElementById('status').textContent = 'Disconnected';
 });
 
 client.on('error', function (error) {
-  console.error('MQTT Error:', error);
+  console.error('❌ MQTT Error:', error);
   document.getElementById('status').className = 'disconnected';
-  document.getElementById('status').textContent = 'Error';
+  document.getElementById('status').textContent = 'Connection Error';
 });
+
+client.on('reconnect', function () {
+  console.log('🔄 Reconnecting...');
+  document.getElementById('status').className = 'connecting';
+  document.getElementById('status').textContent = 'Reconnecting...';
+});
+
+// 🔥 ОБРОБКА ДАНИХ: Вирішуємо в якій кімнаті кожен столик
+function processData() {
+  console.log('🔄 Processing data from', Object.keys(rawDataByMaster).length, 'masters');
+  
+  const now = Date.now();
+  const MASTER_TIMEOUT = 10000; // 10 секунд
+  const TABLE_INACTIVE_TIMEOUT = 15 * 60 * 1000; // 15 хвилин
+  
+  // Видалити старі дані від Masters
+  for (let masterId in rawDataByMaster) {
+    if (now - rawDataByMaster[masterId].receivedAt > MASTER_TIMEOUT) {
+      console.log(`  ⚠️ Master ${masterId} timeout - removing`);
+      delete rawDataByMaster[masterId];
+    }
+  }
+  
+  // Зібрати всі столики з RSSI від кожного Master
+  let tablesByRoom = {}; // {room: {active: bool, tables: {id: {rssi, inactive}}}}
+  let tableRSSI = {};    // {tableId: [{room, rssi, timestamp}]}
+  
+  // Збираємо дані
+  for (let masterId in rawDataByMaster) {
+    let masterData = rawDataByMaster[masterId];
+    let room = masterData.room;
+    
+    if (!tablesByRoom[room]) {
+      tablesByRoom[room] = {
+        active: true,
+        tables: {}
+      };
+    }
+    
+    // Додати столики цього Master
+    (masterData.tables || []).forEach(table => {
+      let tableId = table.id;
+      let rssi = table.rssi;
+      
+      if (!tableRSSI[tableId]) {
+        tableRSSI[tableId] = [];
+      }
+      
+      tableRSSI[tableId].push({
+        room: room,
+        rssi: rssi,
+        timestamp: masterData.timestamp
+      });
+    });
+  }
+  
+  // Вирішити в якій кімнаті кожен столик (найкращий RSSI)
+  for (let tableId in tableRSSI) {
+    let signals = tableRSSI[tableId];
+    
+    // Знайти найсильніший сигнал
+    let bestSignal = signals.reduce((best, current) => {
+      return current.rssi > best.rssi ? current : best;
+    });
+    
+    let bestRoom = bestSignal.room;
+    let bestRSSI = bestSignal.rssi;
+    
+    // Перевірити чи столик inactive (немає даних >15 хв)
+    let isInactive = false; // TODO: реалізувати логіку inactive
+    
+    // Додати столик в найкращу кімнату
+    if (!tablesByRoom[bestRoom].tables[tableId]) {
+      tablesByRoom[bestRoom].tables[tableId] = {
+        rssi: bestRSSI,
+        inactive: isInactive
+      };
+    }
+  }
+  
+  console.log('✅ Processed:', Object.keys(tablesByRoom).length, 'rooms,', Object.keys(tableRSSI).length, 'tables');
+  
+  processedData = {
+    rooms: tablesByRoom,
+    timestamp: now
+  };
+  
+  // Відобразити
+  renderDashboard();
+  
+  // Опублікувати оброблені дані для інших користувачів
+  client.publish(MQTT_TOPIC_PROCESSED, JSON.stringify(processedData), {retain: true});
+}
 
 // Розрахунок розміру столиків
 function calcSize(count) {
@@ -106,17 +235,18 @@ function calcSize(count) {
 
 // Відобразити dashboard
 function renderDashboard() {
-  if (!trackerData.rooms) {
-    document.getElementById('rooms').innerHTML = '<div class="empty">No data yet...</div>';
+  if (!processedData.rooms || Object.keys(processedData.rooms).length === 0) {
+    document.getElementById('rooms').innerHTML = '<div class="empty">Waiting for data from Masters...</div>';
     return;
   }
   
   let html = '';
   
-  Object.keys(trackerData.rooms).forEach(roomName => {
-    let room = trackerData.rooms[roomName];
+  Object.keys(processedData.rooms).forEach(roomName => {
+    let room = processedData.rooms[roomName];
     let tables = room.tables || {};
-    let count = Object.keys(tables).length;
+    let tableIds = Object.keys(tables);
+    let count = tableIds.length;
     let size = calcSize(count);
     let isActive = room.active !== false;
     let roomClass = isActive ? 'room' : 'room offline';
@@ -133,7 +263,9 @@ function renderDashboard() {
     if (count === 0) {
       html += '<div class="empty">No tables</div>';
     } else {
-      Object.keys(tables).forEach(tableId => {
+      tableIds.sort((a, b) => parseInt(a) - parseInt(b)); // Сортувати по ID
+      
+      tableIds.forEach(tableId => {
         let table = tables[tableId];
         let inactive = table.inactive || false;
         let rssi = table.rssi || 0;
@@ -154,6 +286,13 @@ function renderDashboard() {
 
 // Початкове відображення
 renderDashboard();
+
+// Авто-обробка кожні 2 секунди
+setInterval(() => {
+  if (Object.keys(rawDataByMaster).length > 0) {
+    processData();
+  }
+}, 2000);
 </script>
 
 </body>
