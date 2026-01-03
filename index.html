@@ -158,102 +158,76 @@ function processData() {
   const now = Date.now();
   lastProcessTime = now;
   
-  console.log('🔄 Processing data...');
+  console.log('🔄 Processing...');
   
-  // Видалити старі Masters (timeout)
+  // Remove timeout Masters
   for (let masterId in rawDataByMaster) {
     if (now - rawDataByMaster[masterId].receivedAt > MASTER_TIMEOUT) {
-      console.log(`  ⚠️ Master ${masterId} timeout - removing`);
+      console.log(`⚠️ Master ${masterId} timeout`);
       delete rawDataByMaster[masterId];
     }
   }
   
-  // Структура для обробки
-  let rooms = {};        // {roomName: {active, master_id, tables: {}}}
-  let tableSignals = {}; // {tableId: [{room, master_id, rssi, last_seen}]}
+  let rooms = {};
+  let tableSignals = {};
   
-  // Збираємо всі сигнали від столиків
+  // 🔥 Створити кімнати ВІД MASTERS (навіть якщо tables=0!)
   for (let masterId in rawDataByMaster) {
-    let masterData = rawDataByMaster[masterId];
-    let room = masterData.room;
+    let data = rawDataByMaster[masterId];
+    let room = data.room;
     
-    // Створити кімнату якщо не існує
     if (!rooms[room]) {
       rooms[room] = {
         active: true,
-        master_id: masterData.master_id,
-        uptime: masterData.uptime,
+        master_id: data.master_id,
         tables: {}
       };
+      console.log(`  + Room: ${room}`);
     }
+  }
+  
+  // Зібрати сигнали від tables
+  for (let masterId in rawDataByMaster) {
+    let data = rawDataByMaster[masterId];
+    let room = data.room;
     
-    // Додати сигнали від столиків
-    (masterData.tables || []).forEach(table => {
-      let tableId = table.id;
+    (data.tables || []).forEach(table => {
+      let id = table.id;
       
-      if (!tableSignals[tableId]) {
-        tableSignals[tableId] = [];
-      }
+      if (!tableSignals[id]) tableSignals[id] = [];
       
-      tableSignals[tableId].push({
+      tableSignals[id].push({
         room: room,
-        master_id: masterData.master_id,
         rssi: table.rssi,
         last_seen: table.last_seen || 0
       });
     });
   }
   
-  // Визначити в якій кімнаті кожен столик (найкращий RSSI)
-  for (let tableId in tableSignals) {
-    let signals = tableSignals[tableId];
+  // Визначити room для кожного table
+  for (let id in tableSignals) {
+    let signals = tableSignals[id];
     
-    // Знайти найсильніший сигнал
-    let bestSignal = signals.reduce((best, current) => {
-      return current.rssi > best.rssi ? current : best;
-    });
+    let best = signals.reduce((a, b) => a.rssi > b.rssi ? a : b);
     
-    let bestRoom = bestSignal.room;
-    let rssi = bestSignal.rssi;
-    let lastSeen = bestSignal.last_seen;
+    let room = best.room;
+    let inactive = best.last_seen > TABLE_INACTIVE_TIMEOUT;
     
-    // Перевірити чи столик inactive (>15 хвилин без сигналу)
-    let isInactive = lastSeen > TABLE_INACTIVE_TIMEOUT;
-    
-    // Додати столик в найкращу кімнату
-    rooms[bestRoom].tables[tableId] = {
-      rssi: rssi,
-      inactive: isInactive,
-      last_seen: lastSeen
+    rooms[room].tables[id] = {
+      rssi: best.rssi,
+      inactive: inactive
     };
   }
   
-  // Позначити кімнати без активних Masters як offline
-  for (let room in rooms) {
-    let hasActiveMaster = false;
-    for (let masterId in rawDataByMaster) {
-      if (rawDataByMaster[masterId].room === room) {
-        hasActiveMaster = true;
-        break;
-      }
-    }
-    rooms[room].active = hasActiveMaster;
-  }
+  console.log(`✅ Rooms: ${Object.keys(rooms).length}, Tables: ${Object.keys(tableSignals).length}`);
   
-  console.log(`✅ Processed: ${Object.keys(rooms).length} rooms, ${Object.keys(tableSignals).length} tables`);
-  
-  // Зберегти результат
   processedData = {
     rooms: rooms,
-    timestamp: now,
-    masters_count: Object.keys(rawDataByMaster).length,
-    tables_count: Object.keys(tableSignals).length
+    timestamp: now
   };
   
-  // Відобразити
   renderDashboard();
   
-  // Опублікувати для інших браузерів
   client.publish('tracker/state', JSON.stringify(processedData), {retain: true});
 }
 
