@@ -18,7 +18,6 @@ body {
   min-height: 100vh;
 }
 
-/* Header */
 .header {
   background: #0a0a0a;
   border-bottom: 1px solid #1a1a1a;
@@ -55,7 +54,6 @@ body {
   color: #fff;
 }
 
-/* Stats Bar */
 .stats-bar {
   background: #0a0a0a;
   border-bottom: 1px solid #1a1a1a;
@@ -87,7 +85,6 @@ body {
   color: #dc2626;
 }
 
-/* Content */
 .content {
   padding: 30px;
 }
@@ -159,12 +156,6 @@ body {
   background: #1a0808;
 }
 
-.table-item.stale {
-  border-color: #27272a;
-  background: #0a0a0a;
-  opacity: 0.5;
-}
-
 .table-id {
   font-size: 28px;
   font-weight: 700;
@@ -186,7 +177,6 @@ body {
   letter-spacing: 0.5px;
 }
 
-/* Empty State */
 .empty-state {
   text-align: center;
   padding: 60px 20px;
@@ -204,7 +194,6 @@ body {
   color: #666;
 }
 
-/* Footer Info */
 .footer-info {
   position: fixed;
   bottom: 20px;
@@ -229,7 +218,6 @@ body {
   font-weight: 600;
 }
 
-/* Loading */
 .loading {
   text-align: center;
   padding: 100px 20px;
@@ -281,116 +269,96 @@ body {
 <div class="content" id="content">
   <div class="loading">
     <div class="spinner"></div>
-    <div style="font-size: 14px; color: #666;">WAITING FOR DATA</div>
+    <div style="font-size: 14px; color: #666;">CONNECTING TO FIREBASE</div>
   </div>
 </div>
 
 <div class="footer-info" id="footer">
-  <div><span class="label">Broker:</span> <span class="value">broker.emqx.io</span></div>
-  <div><span class="label">Messages:</span> <span class="value" id="msg-count">0</span></div>
-  <div><span class="label">Last Update:</span> <span class="value" id="last-update">--:--:--</span></div>
+  <div><span class="label">Backend:</span> <span class="value">Firebase</span></div>
+  <div><span class="label">Updates:</span> <span class="value" id="update-count">0</span></div>
+  <div><span class="label">Last:</span> <span class="value" id="last-update">--:--:--</span></div>
 </div>
 
-<script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
-<script>
-const MQTT_HOST = 'ws://broker.emqx.io:8083/mqtt';
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+  import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
-let messageCount = 0;
-let masters = {};
+  // ===== FIREBASE CONFIG =====
+  // ЗАМІНИТИ на свою конфігурацію з Firebase Console!
+  const firebaseConfig = {
+    apiKey: "AIzaSyCWNko1tniaerF3b9Wi8HDS0muhymvIVoQ",
+    authDomain: "table-tracker-712c8.firebaseapp.com",
+    projectId: "table-tracker-712c8",
+    storageBucket: "table-tracker-712c8.firebasestorage.app",
+    messagingSenderId: "868274806628",
+    appId: "1:868274806628:web:36b9ec7ae969ab3ec2e471"
+  };
 
-const client = mqtt.connect(MQTT_HOST, {
-  clean: true,
-  connectTimeout: 5000,
-  reconnectPeriod: 3000,
-  clientId: 'Tracker_' + Math.random().toString(16).substr(2, 8)
-});
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const database = getDatabase(app);
 
-client.on('connect', () => {
-  console.log('✅ Connected');
-  document.getElementById('status').className = 'status online';
-  document.getElementById('status').textContent = 'ONLINE';
+  console.log('🔥 Firebase initialized');
+
+  let updateCount = 0;
+
+  // Listen to /rooms
+  const roomsRef = ref(database, 'rooms');
   
-  client.subscribe('tracker/raw/#', (err) => {
-    if (!err) console.log('📡 Subscribed');
-  });
-});
-
-client.on('message', (topic, message) => {
-  messageCount++;
-  
-  try {
-    const data = JSON.parse(message.toString());
-    const masterId = topic.split('/')[2];
-    const now = Date.now();
+  onValue(roomsRef, (snapshot) => {
+    updateCount++;
     
-    masters[masterId] = {
-      room: data.room,
-      master_id: data.master_id,
-      lastSeen: now,
-      tables: data.tables || []
-    };
-    
-    document.getElementById('msg-count').textContent = messageCount;
+    document.getElementById('status').className = 'status online';
+    document.getElementById('status').textContent = 'ONLINE';
+    document.getElementById('update-count').textContent = updateCount;
     document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
     
-    render();
+    const data = snapshot.val();
+    console.log('📨 Firebase update:', data);
     
-  } catch (e) {
-    console.error('Parse error:', e);
-  }
-});
+    if (data) {
+      render(data);
+    } else {
+      showEmpty();
+    }
+  }, (error) => {
+    console.error('❌ Firebase error:', error);
+    document.getElementById('status').className = 'status offline';
+    document.getElementById('status').textContent = 'ERROR';
+  });
 
-client.on('disconnect', () => {
-  document.getElementById('status').className = 'status offline';
-  document.getElementById('status').textContent = 'OFFLINE';
-});
-
-client.on('error', (err) => {
-  console.error('Error:', err);
-  document.getElementById('status').className = 'status offline';
-  document.getElementById('status').textContent = 'ERROR';
-});
-
-function render() {
-  const now = Date.now();
-  let rooms = {};
-  let totalTables = 0;
-  let activeTables = 0;
-  let activeMasters = 0;
-  
-  for (let masterId in masters) {
-    const master = masters[masterId];
+  function render(rooms) {
+    const now = Date.now();
+    let totalRooms = 0;
+    let totalTables = 0;
+    let activeTables = 0;
+    let activeMasters = 0;
     
-    if (now - master.lastSeen > 60000) continue;
+    let html = '';
     
-    activeMasters++;
-    const roomName = master.room;
-    
-    if (!rooms[roomName]) rooms[roomName] = [];
-    
-    master.tables.forEach(table => {
-      rooms[roomName].push(table);
-      totalTables++;
-      if (table.last_seen < 30000) activeTables++;
-    });
-  }
-  
-  document.getElementById('stat-rooms').textContent = Object.keys(rooms).length;
-  document.getElementById('stat-tables').textContent = totalTables;
-  document.getElementById('stat-active').textContent = activeTables;
-  document.getElementById('stat-masters').textContent = activeMasters;
-  
-  let html = '';
-  
-  if (Object.keys(rooms).length === 0) {
-    html = `
-      <div class="empty-state">
-        <div class="empty-icon">—</div>
-        <div class="empty-text">NO ACTIVE MASTERS</div>
-      </div>`;
-  } else {
     for (let roomName in rooms) {
-      const tables = rooms[roomName].sort((a, b) => a.id - b.id);
+      const room = rooms[roomName];
+      
+      // Check if master is active (< 60 sec)
+      const lastUpdate = room.updated || 0;
+      const age = now / 1000 - lastUpdate;
+      
+      if (age > 60) continue; // Skip old data
+      
+      totalRooms++;
+      activeMasters++;
+      
+      const tables = room.tables || [];
+      totalTables += tables.length;
+      
+      // Count active
+      tables.forEach(table => {
+        if (table.last_seen < 30000) activeTables++;
+      });
+      
+      // Sort tables by ID
+      const sortedTables = tables.sort((a, b) => a.id - b.id);
       
       html += `
       <div class="room-section">
@@ -400,7 +368,7 @@ function render() {
         </div>
         <div class="table-grid">`;
       
-      tables.forEach(table => {
+      sortedTables.forEach(table => {
         const status = getStatus(table.last_seen);
         
         html += `
@@ -413,27 +381,38 @@ function render() {
       
       html += '</div></div>';
     }
-  }
-  
-  document.getElementById('content').innerHTML = html;
-}
-
-function getStatus(lastSeen) {
-  if (lastSeen < 30000) return 'active';
-  if (lastSeen < 900000) return 'warning';
-  if (lastSeen < 1800000) return 'inactive';
-  return 'stale';
-}
-
-setInterval(() => {
-  const now = Date.now();
-  for (let masterId in masters) {
-    if (now - masters[masterId].lastSeen > 120000) {
-      delete masters[masterId];
+    
+    if (html === '') {
+      showEmpty();
+    } else {
+      document.getElementById('content').innerHTML = html;
     }
+    
+    // Update stats
+    document.getElementById('stat-rooms').textContent = totalRooms;
+    document.getElementById('stat-tables').textContent = totalTables;
+    document.getElementById('stat-active').textContent = activeTables;
+    document.getElementById('stat-masters').textContent = activeMasters;
   }
-  render();
-}, 30000);
+
+  function showEmpty() {
+    document.getElementById('content').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">—</div>
+        <div class="empty-text">NO ACTIVE MASTERS</div>
+      </div>`;
+    
+    document.getElementById('stat-rooms').textContent = 0;
+    document.getElementById('stat-tables').textContent = 0;
+    document.getElementById('stat-active').textContent = 0;
+    document.getElementById('stat-masters').textContent = 0;
+  }
+
+  function getStatus(lastSeen) {
+    if (lastSeen < 30000) return 'active';
+    if (lastSeen < 900000) return 'warning';
+    return 'inactive';
+  }
 </script>
 
 </body>
