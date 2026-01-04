@@ -40,7 +40,6 @@ body {
   gap: 10px;
 }
 
-/* Status Badge */
 .status-badge {
   padding: 8px 20px;
   border-radius: 20px;
@@ -92,56 +91,7 @@ body {
   50% { opacity: 0.5; }
 }
 
-/* Controls */
-.controls {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  border-radius: 15px;
-  padding: 15px 20px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.controls label {
-  font-size: 13px;
-  opacity: 0.9;
-  font-weight: 500;
-}
-
-.controls input {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #fff;
-  padding: 8px 12px;
-  border-radius: 8px;
-  width: 90px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.controls input::placeholder {
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.controls button {
-  background: #fff;
-  color: #667eea;
-  border: none;
-  padding: 8px 20px;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.controls button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-/* Stats Bar */
+/* Stats */
 .stats {
   background: rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(10px);
@@ -170,7 +120,40 @@ body {
   letter-spacing: 1px;
 }
 
-/* Rooms Container */
+/* Legend */
+.legend {
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  padding: 12px 20px;
+  text-align: center;
+  font-size: 13px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.legend-dot.active { background: #22c55e; }
+.legend-dot.warning { background: #f59e0b; }
+.legend-dot.inactive { background: #ef4444; }
+.legend-dot.stale { background: #6b7280; }
+
+/* Rooms */
 .rooms-container {
   padding: 20px;
   display: flex;
@@ -178,7 +161,6 @@ body {
   gap: 20px;
 }
 
-/* Room Card */
 .room-card {
   background: rgba(255, 255, 255, 0.95);
   border-radius: 20px;
@@ -255,14 +237,12 @@ body {
   width: 100px;
   height: 100px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   color: #fff;
   font-weight: 700;
-  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
   transition: all 0.3s;
   cursor: pointer;
   position: relative;
@@ -270,18 +250,56 @@ body {
 
 .table:hover {
   transform: scale(1.1);
+}
+
+/* Статуси столиків */
+.table.active {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+}
+
+.table.active:hover {
   box-shadow: 0 8px 25px rgba(34, 197, 94, 0.5);
+}
+
+.table.warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+  animation: pulse-warning 2s infinite;
+}
+
+.table.warning:hover {
+  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.5);
 }
 
 .table.inactive {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
-  animation: pulse-red 2s infinite;
+  animation: pulse-danger 3s infinite;
 }
 
-@keyframes pulse-red {
+.table.inactive:hover {
+  box-shadow: 0 8px 25px rgba(239, 68, 68, 0.5);
+}
+
+.table.stale {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3);
+  opacity: 0.7;
+}
+
+.table.stale:hover {
+  box-shadow: 0 8px 25px rgba(107, 114, 128, 0.5);
+}
+
+@keyframes pulse-warning {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
+}
+
+@keyframes pulse-danger {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
 .table-id {
@@ -293,6 +311,12 @@ body {
   font-size: 11px;
   opacity: 0.9;
   margin-top: 4px;
+}
+
+.table-time {
+  font-size: 9px;
+  opacity: 0.8;
+  margin-top: 2px;
 }
 
 .empty-state {
@@ -312,7 +336,6 @@ body {
   font-weight: 500;
 }
 
-/* Loading */
 .loading {
   text-align: center;
   padding: 100px 20px;
@@ -335,15 +358,23 @@ body {
   100% { transform: rotate(360deg); }
 }
 
+/* Server info */
+.server-info {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  padding: 10px 15px;
+  border-radius: 10px;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .header h1 {
     font-size: 20px;
-  }
-  
-  .controls {
-    width: 100%;
-    justify-content: center;
   }
   
   .stats {
@@ -352,6 +383,10 @@ body {
   
   .stat-value {
     font-size: 24px;
+  }
+  
+  .legend {
+    gap: 10px;
   }
   
   .tables-grid {
@@ -377,18 +412,6 @@ body {
   <div class="status-badge connecting" id="status">Connecting...</div>
 </div>
 
-<div class="controls">
-  <label>ESP-NOW:</label>
-  <input type="number" id="espnow-time" value="5000" min="1000" max="30000" step="1000">
-  <label>ms</label>
-  
-  <label style="margin-left: 10px">Cycle:</label>
-  <input type="number" id="cycle-interval" value="6000" min="2000" max="60000" step="1000">
-  <label>ms</label>
-  
-  <button onclick="updateConfig()">Apply Config</button>
-</div>
-
 <div class="stats" id="stats">
   <div class="stat">
     <div class="stat-value" id="stat-rooms">0</div>
@@ -396,19 +419,46 @@ body {
   </div>
   <div class="stat">
     <div class="stat-value" id="stat-tables">0</div>
-    <div class="stat-label">Tables</div>
+    <div class="stat-label">Total</div>
   </div>
   <div class="stat">
-    <div class="stat-value" id="stat-active">0</div>
+    <div class="stat-value" style="color: #22c55e" id="stat-active">0</div>
     <div class="stat-label">Active</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" id="stat-masters">0</div>
+    <div class="stat-label">Masters</div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-dot active"></div>
+    <span>Active (&lt;30s)</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot warning"></div>
+    <span>Warning (30s-15m)</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot inactive"></div>
+    <span>Inactive (15m-30m)</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot stale"></div>
+    <span>Stale (&gt;30m)</span>
   </div>
 </div>
 
 <div class="rooms-container" id="rooms">
   <div class="loading">
     <div class="spinner"></div>
-    Waiting for data from Masters...
+    Waiting for Masters...
   </div>
+</div>
+
+<div class="server-info" id="server-info">
+  Client: Connecting...
 </div>
 
 <script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
@@ -416,16 +466,17 @@ body {
 // ================= CONFIG =================
 const MQTT_HOST = 'wss://f3fbfed182654a99bd2d329ffb0aef99.s1.eu.hivemq.cloud:8884/mqtt';
 const MQTT_USERNAME = 'master1';
-const MQTT_PASSWORD = 'Qwerty1234!';  // 🔥 ТВІЙ ПАРОЛЬ
+const MQTT_PASSWORD = 'Qwerty1234!';
 
-const MASTER_TIMEOUT = 15000;          // 15 sec
-const TABLE_INACTIVE_TIMEOUT = 900000; // 15 min
-const PROCESS_INTERVAL = 2000;         // 2 sec
+const MASTER_TIMEOUT = 15000;          // 15 сек - Master offline
+const TABLE_WARNING_TIMEOUT = 30000;   // 30 сек - жовтий (warning)
+const TABLE_INACTIVE_TIMEOUT = 900000; // 15 хв - червоний (inactive)
+const TABLE_STALE_TIMEOUT = 1800000;   // 30 хв - сірий (stale)
+const CLEANUP_INTERVAL = 3600000;      // 1 година - видалити зовсім
 
-// ================= GLOBALS =================
-let rawDataByMaster = {};
-let processedData = {};
-let lastProcessTime = 0;
+// ================= DATA STRUCTURES =================
+let masters = {};  // {masterId: {room, master_id, lastSeen, active}}
+let tables = {};   // {tableId: {signals: [{room, master_id, rssi, timestamp}]}}
 
 // ================= MQTT =================
 const client = mqtt.connect(MQTT_HOST, {
@@ -440,39 +491,21 @@ client.on('connect', () => {
   console.log('✅ MQTT Connected');
   updateStatus('connected', 'Connected');
   
-  client.subscribe('tracker/raw/#');
-  client.subscribe('tracker/state');
-  
-  console.log('📡 Subscribed to topics');
+  // Підписатись на raw дані
+  client.subscribe('tracker/raw/#', (err) => {
+    if (!err) {
+      console.log('📡 Subscribed to tracker/raw/#');
+    }
+  });
 });
 
 client.on('message', (topic, message) => {
   try {
-    const data = JSON.parse(message.toString());
-    
     if (topic.startsWith('tracker/raw/')) {
       const masterId = topic.split('/')[2];
-      
-      rawDataByMaster[masterId] = {
-        room: data.room,
-        master_id: data.master_id,
-        timestamp: data.timestamp,
-        tables: data.tables || [],
-        receivedAt: Date.now()
-      };
-      
-      console.log(`📨 Master ${masterId}: ${data.tables.length} tables`);
-      
-      if (Date.now() - lastProcessTime > PROCESS_INTERVAL) {
-        processData();
-      }
+      const data = JSON.parse(message.toString());
+      handleMasterData(masterId, data);
     }
-    
-    if (topic === 'tracker/state') {
-      processedData = data;
-      renderDashboard();
-    }
-    
   } catch (e) {
     console.error('❌ Parse error:', e);
   }
@@ -493,113 +526,178 @@ client.on('reconnect', () => {
   updateStatus('connecting', 'Reconnecting...');
 });
 
-// ================= FUNCTIONS =================
-function updateStatus(state, text) {
-  const el = document.getElementById('status');
-  el.className = `status-badge ${state}`;
-  el.textContent = text;
+// ================= MASTER DATA HANDLER =================
+function handleMasterData(masterId, data) {
+  const now = Date.now();
+  
+  // Оновити інфо про Master
+  masters[masterId] = {
+    room: data.room,
+    master_id: data.master_id,
+    lastSeen: now,
+    active: true
+  };
+  
+  console.log(`📨 Master ${masterId} (${data.room}): ${data.tables.length} tables`);
+  
+  // Обробити кожен столик
+  (data.tables || []).forEach(table => {
+    const tableId = table.id;
+    const rssi = table.rssi;
+    const lastSeen = table.last_seen || 0;
+    
+    // Ініціалізувати столик якщо новий
+    if (!tables[tableId]) {
+      tables[tableId] = {
+        signals: []
+      };
+      console.log(`  [TABLE+] TX_${tableId} added`);
+    }
+    
+    // Додати/оновити сигнал від цього Master
+    const existingSignalIndex = tables[tableId].signals.findIndex(
+      s => s.master_id === data.master_id
+    );
+    
+    const signal = {
+      room: data.room,
+      master_id: data.master_id,
+      rssi: rssi,
+      timestamp: now - lastSeen
+    };
+    
+    if (existingSignalIndex >= 0) {
+      tables[tableId].signals[existingSignalIndex] = signal;
+    } else {
+      tables[tableId].signals.push(signal);
+    }
+  });
+  
+  // Оновити UI
+  processAndRender();
 }
 
-function processData() {
+// ================= PROCESS STATE =================
+function processAndRender() {
   const now = Date.now();
-  lastProcessTime = now;
   
-  console.log('🔄 Processing data...');
-  
-  // Remove timeout Masters
-  for (let masterId in rawDataByMaster) {
-    if (now - rawDataByMaster[masterId].receivedAt > MASTER_TIMEOUT) {
-      console.log(`⚠️ Master ${masterId} timeout`);
-      delete rawDataByMaster[masterId];
+  // Очистити timeout Masters
+  for (let masterId in masters) {
+    if (now - masters[masterId].lastSeen > MASTER_TIMEOUT) {
+      if (masters[masterId].active) {
+        console.log(`⚠️  Master ${masterId} timeout`);
+        masters[masterId].active = false;
+      }
     }
   }
   
-  let rooms = {};
-  let tableSignals = {};
-  
-  // Create rooms from Masters
-  for (let masterId in rawDataByMaster) {
-    let data = rawDataByMaster[masterId];
-    let room = data.room;
+  // Очистити дуже старі сигнали
+  for (let tableId in tables) {
+    tables[tableId].signals = tables[tableId].signals.filter(signal => {
+      return (now - signal.timestamp) < CLEANUP_INTERVAL;
+    });
     
+    // Якщо не залишилось сигналів - видалити столик
+    if (tables[tableId].signals.length === 0) {
+      console.log(`  [TABLE-] TX_${tableId} removed (no signals)`);
+      delete tables[tableId];
+    }
+  }
+  
+  // Побудувати фінальний стан
+  let rooms = {};
+  
+  // Створити кімнати від активних Masters
+  for (let masterId in masters) {
+    if (!masters[masterId].active) continue;
+    
+    const room = masters[masterId].room;
     if (!rooms[room]) {
       rooms[room] = {
         active: true,
-        master_id: data.master_id,
+        master_id: masters[masterId].master_id,
         tables: {}
       };
     }
   }
   
-  // Collect table signals
-  for (let masterId in rawDataByMaster) {
-    let data = rawDataByMaster[masterId];
-    let room = data.room;
+  // Розподілити столики по кімнатах
+  let activeCount = 0;
+  let warningCount = 0;
+  let inactiveCount = 0;
+  let staleCount = 0;
+  
+  for (let tableId in tables) {
+    const signals = tables[tableId].signals;
+    if (signals.length === 0) continue;
     
-    (data.tables || []).forEach(table => {
-      let id = table.id;
-      
-      if (!tableSignals[id]) tableSignals[id] = [];
-      
-      tableSignals[id].push({
-        room: room,
-        rssi: table.rssi,
-        last_seen: table.last_seen || 0
-      });
+    // Знайти найкращий сигнал
+    const bestSignal = signals.reduce((best, current) => {
+      return current.rssi > best.rssi ? current : best;
     });
+    
+    const room = bestSignal.room;
+    const lastSeen = now - bestSignal.timestamp;
+    
+    // Визначити статус столика
+    let status = 'active';
+    if (lastSeen > TABLE_STALE_TIMEOUT) {
+      status = 'stale';
+      staleCount++;
+    } else if (lastSeen > TABLE_INACTIVE_TIMEOUT) {
+      status = 'inactive';
+      inactiveCount++;
+    } else if (lastSeen > TABLE_WARNING_TIMEOUT) {
+      status = 'warning';
+      warningCount++;
+    } else {
+      activeCount++;
+    }
+    
+    // Додати столик в найкращу кімнату
+    if (rooms[room]) {
+      rooms[room].tables[tableId] = {
+        rssi: bestSignal.rssi,
+        last_seen: lastSeen,
+        status: status
+      };
+    }
   }
   
-  // Determine room for each table
-  for (let id in tableSignals) {
-    let signals = tableSignals[id];
-    let best = signals.reduce((a, b) => a.rssi > b.rssi ? a : b);
-    
-    let room = best.room;
-    let inactive = best.last_seen > TABLE_INACTIVE_TIMEOUT;
-    
-    rooms[room].tables[id] = {
-      rssi: best.rssi,
-      inactive: inactive
-    };
-  }
+  // Stats
+  const roomCount = Object.keys(rooms).length;
+  const tableCount = Object.keys(tables).length;
+  const masterCount = Object.keys(masters).filter(id => masters[id].active).length;
   
-  console.log(`✅ Rooms: ${Object.keys(rooms).length}, Tables: ${Object.keys(tableSignals).length}`);
+  console.log(`📊 State: ${roomCount} rooms, ${tableCount} tables (✓${activeCount} ⚠${warningCount} ✗${inactiveCount} ⏸${staleCount})`);
   
-  processedData = {
-    rooms: rooms,
-    timestamp: now
-  };
-  
-  renderDashboard();
-  
-  client.publish('tracker/state', JSON.stringify(processedData), {retain: true});
+  // Render
+  renderDashboard(rooms, roomCount, tableCount, activeCount, masterCount);
+  updateServerInfo();
 }
 
-function renderDashboard() {
-  if (!processedData.rooms || Object.keys(processedData.rooms).length === 0) {
+// ================= RENDER =================
+function renderDashboard(rooms, roomCount, tableCount, activeCount, masterCount) {
+  if (!rooms || Object.keys(rooms).length === 0) {
     document.getElementById('rooms').innerHTML = `
       <div class="loading">
         <div class="spinner"></div>
-        Waiting for data from Masters...
+        Waiting for Masters...
       </div>`;
-    updateStats(0, 0, 0);
+    updateStats(0, 0, 0, 0);
     return;
   }
   
   let html = '';
-  let totalTables = 0;
-  let activeTables = 0;
   
-  let roomNames = Object.keys(processedData.rooms).sort();
+  let roomNames = Object.keys(rooms).sort();
   
   roomNames.forEach(roomName => {
-    let room = processedData.rooms[roomName];
+    let room = rooms[roomName];
     let tables = room.tables || {};
     let tableIds = Object.keys(tables);
     let count = tableIds.length;
     let isActive = room.active !== false;
-    
-    totalTables += count;
     
     html += `
     <div class="room-card ${isActive ? '' : 'offline'}">
@@ -624,16 +722,29 @@ function renderDashboard() {
       
       tableIds.forEach(tableId => {
         let table = tables[tableId];
-        let inactive = table.inactive || false;
+        let status = table.status || 'active';
         let rssi = table.rssi || 0;
+        let lastSeen = table.last_seen || 0;
         
-        if (!inactive) activeTables++;
+        let lastSeenText = formatTime(lastSeen);
+        
+        // Емодзі для статусу
+        let statusEmoji = {
+          'active': '✓',
+          'warning': '⚠',
+          'inactive': '✗',
+          'stale': '⏸'
+        }[status] || '?';
         
         html += `
-        <div class="table ${inactive ? 'inactive' : ''}" 
-             title="Table ${tableId}: ${rssi} dBm">
+        <div class="table ${status}" 
+             title="Table ${tableId}
+Status: ${status}
+RSSI: ${rssi} dBm
+Last seen: ${lastSeenText} ago">
           <div class="table-id">${tableId}</div>
           <div class="table-rssi">${rssi} dBm</div>
+          <div class="table-time">${statusEmoji} ${lastSeenText}</div>
         </div>`;
       });
       
@@ -644,59 +755,52 @@ function renderDashboard() {
   });
   
   document.getElementById('rooms').innerHTML = html;
-  updateStats(roomNames.length, totalTables, activeTables);
+  updateStats(roomCount, tableCount, activeCount, masterCount);
 }
 
-function updateStats(rooms, tables, active) {
+// ================= HELPERS =================
+function updateStatus(state, text) {
+  const el = document.getElementById('status');
+  el.className = `status-badge ${state}`;
+  el.textContent = text;
+}
+
+function updateServerInfo() {
+  const roomCount = Object.keys(masters).filter(id => masters[id].active).length;
+  document.getElementById('server-info').textContent = 
+    `Client: ${roomCount} Master${roomCount !== 1 ? 's' : ''} online`;
+}
+
+function formatTime(ms) {
+  if (ms < 1000) return 'now';
+  if (ms < 60000) return `${Math.floor(ms/1000)}s`;
+  if (ms < 3600000) return `${Math.floor(ms/60000)}m`;
+  return `${Math.floor(ms/3600000)}h`;
+}
+
+function updateStats(rooms, tables, active, masters) {
   document.getElementById('stat-rooms').textContent = rooms;
   document.getElementById('stat-tables').textContent = tables;
   document.getElementById('stat-active').textContent = active;
+  document.getElementById('stat-masters').textContent = masters;
 }
 
-function updateConfig() {
-  let espnowTime = parseInt(document.getElementById('espnow-time').value);
-  let cycleInterval = parseInt(document.getElementById('cycle-interval').value);
-  
-  if (espnowTime < 1000 || espnowTime > 30000) {
-    alert('ESP-NOW time: 1000-30000 ms');
-    return;
-  }
-  
-  if (cycleInterval < 2000 || cycleInterval > 60000) {
-    alert('Cycle interval: 2000-60000 ms');
-    return;
-  }
-  
-  if (cycleInterval <= espnowTime) {
-    alert('Cycle must be greater than ESP-NOW time');
-    return;
-  }
-  
-  console.log(`⚙️ Updating config: espnow=${espnowTime}ms, cycle=${cycleInterval}ms`);
-  
-  for (let masterId in rawDataByMaster) {
-    let config = {
-      espnow_time: espnowTime,
-      cycle_interval: cycleInterval
-    };
-    
-    let topic = `tracker/config/${masterId}`;
-    client.publish(topic, JSON.stringify(config));
-    console.log(`📤 Sent to Master ${masterId}`);
-  }
-  
-  alert('✅ Configuration sent to all Masters!');
-}
-
-// Auto-process
+// Auto cleanup старих даних
 setInterval(() => {
-  if (Object.keys(rawDataByMaster).length > 0) {
-    processData();
+  const now = Date.now();
+  for (let tableId in tables) {
+    tables[tableId].signals = tables[tableId].signals.filter(signal => {
+      return (now - signal.timestamp) < CLEANUP_INTERVAL;
+    });
+    if (tables[tableId].signals.length === 0) {
+      delete tables[tableId];
+    }
   }
-}, PROCESS_INTERVAL);
+  processAndRender();
+}, 60000); // Кожну хвилину
 
 // Initial render
-renderDashboard();
+renderDashboard({}, 0, 0, 0, 0);
 </script>
 
 </body>
