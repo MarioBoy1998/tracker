@@ -252,7 +252,6 @@ body {
   transform: scale(1.1);
 }
 
-/* Статуси столиків */
 .table.active {
   background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
   box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
@@ -358,7 +357,6 @@ body {
   100% { transform: rotate(360deg); }
 }
 
-/* Server info */
 .server-info {
   position: fixed;
   bottom: 10px;
@@ -371,37 +369,20 @@ body {
   opacity: 0.7;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
-  .header h1 {
-    font-size: 20px;
-  }
-  
-  .stats {
-    gap: 20px;
-  }
-  
-  .stat-value {
-    font-size: 24px;
-  }
-  
-  .legend {
-    gap: 10px;
-  }
-  
+  .header h1 { font-size: 20px; }
+  .stats { gap: 20px; }
+  .stat-value { font-size: 24px; }
+  .legend { gap: 10px; }
   .tables-grid {
     grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
     gap: 15px;
   }
-  
   .table {
     width: 80px;
     height: 80px;
   }
-  
-  .table-id {
-    font-size: 22px;
-  }
+  .table-id { font-size: 22px; }
 }
 </style>
 </head>
@@ -458,40 +439,36 @@ body {
 </div>
 
 <div class="server-info" id="server-info">
-  Client: Connecting...
+  Broker: broker.emqx.io (public)
 </div>
 
 <script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
 <script>
 // ================= CONFIG =================
-const MQTT_HOST = 'wss://f3fbfed182654a99bd2d329ffb0aef99.s1.eu.hivemq.cloud:8884/mqtt';
-const MQTT_USERNAME = 'master1';
-const MQTT_PASSWORD = 'Qwerty1234!';
+const MQTT_HOST = 'ws://broker.emqx.io:8083/mqtt';  // ← Публічний брокер WebSocket
 
-const MASTER_TIMEOUT = 15000;          // 15 сек - Master offline
-const TABLE_WARNING_TIMEOUT = 30000;   // 30 сек - жовтий (warning)
-const TABLE_INACTIVE_TIMEOUT = 900000; // 15 хв - червоний (inactive)
-const TABLE_STALE_TIMEOUT = 1800000;   // 30 хв - сірий (stale)
-const CLEANUP_INTERVAL = 3600000;      // 1 година - видалити зовсім
+const MASTER_TIMEOUT = 15000;
+const TABLE_WARNING_TIMEOUT = 30000;
+const TABLE_INACTIVE_TIMEOUT = 900000;
+const TABLE_STALE_TIMEOUT = 1800000;
+const CLEANUP_INTERVAL = 3600000;
 
 // ================= DATA STRUCTURES =================
-let masters = {};  // {masterId: {room, master_id, lastSeen, active}}
-let tables = {};   // {tableId: {signals: [{room, master_id, rssi, timestamp}]}}
+let masters = {};
+let tables = {};
 
 // ================= MQTT =================
 const client = mqtt.connect(MQTT_HOST, {
-  username: MQTT_USERNAME,
-  password: MQTT_PASSWORD,
+  // Без username/password (публічний брокер)
   clean: true,
   connectTimeout: 4000,
   reconnectPeriod: 1000,
 });
 
 client.on('connect', () => {
-  console.log('✅ MQTT Connected');
+  console.log('✅ MQTT Connected to public broker');
   updateStatus('connected', 'Connected');
   
-  // Підписатись на raw дані
   client.subscribe('tracker/raw/#', (err) => {
     if (!err) {
       console.log('📡 Subscribed to tracker/raw/#');
@@ -530,7 +507,6 @@ client.on('reconnect', () => {
 function handleMasterData(masterId, data) {
   const now = Date.now();
   
-  // Оновити інфо про Master
   masters[masterId] = {
     room: data.room,
     master_id: data.master_id,
@@ -540,21 +516,16 @@ function handleMasterData(masterId, data) {
   
   console.log(`📨 Master ${masterId} (${data.room}): ${data.tables.length} tables`);
   
-  // Обробити кожен столик
   (data.tables || []).forEach(table => {
     const tableId = table.id;
     const rssi = table.rssi;
     const lastSeen = table.last_seen || 0;
     
-    // Ініціалізувати столик якщо новий
     if (!tables[tableId]) {
-      tables[tableId] = {
-        signals: []
-      };
+      tables[tableId] = { signals: [] };
       console.log(`  [TABLE+] TX_${tableId} added`);
     }
     
-    // Додати/оновити сигнал від цього Master
     const existingSignalIndex = tables[tableId].signals.findIndex(
       s => s.master_id === data.master_id
     );
@@ -573,7 +544,6 @@ function handleMasterData(masterId, data) {
     }
   });
   
-  // Оновити UI
   processAndRender();
 }
 
@@ -581,7 +551,6 @@ function handleMasterData(masterId, data) {
 function processAndRender() {
   const now = Date.now();
   
-  // Очистити timeout Masters
   for (let masterId in masters) {
     if (now - masters[masterId].lastSeen > MASTER_TIMEOUT) {
       if (masters[masterId].active) {
@@ -591,23 +560,19 @@ function processAndRender() {
     }
   }
   
-  // Очистити дуже старі сигнали
   for (let tableId in tables) {
     tables[tableId].signals = tables[tableId].signals.filter(signal => {
       return (now - signal.timestamp) < CLEANUP_INTERVAL;
     });
     
-    // Якщо не залишилось сигналів - видалити столик
     if (tables[tableId].signals.length === 0) {
-      console.log(`  [TABLE-] TX_${tableId} removed (no signals)`);
+      console.log(`  [TABLE-] TX_${tableId} removed`);
       delete tables[tableId];
     }
   }
   
-  // Побудувати фінальний стан
   let rooms = {};
   
-  // Створити кімнати від активних Masters
   for (let masterId in masters) {
     if (!masters[masterId].active) continue;
     
@@ -621,17 +586,12 @@ function processAndRender() {
     }
   }
   
-  // Розподілити столики по кімнатах
   let activeCount = 0;
-  let warningCount = 0;
-  let inactiveCount = 0;
-  let staleCount = 0;
   
   for (let tableId in tables) {
     const signals = tables[tableId].signals;
     if (signals.length === 0) continue;
     
-    // Знайти найкращий сигнал
     const bestSignal = signals.reduce((best, current) => {
       return current.rssi > best.rssi ? current : best;
     });
@@ -639,22 +599,17 @@ function processAndRender() {
     const room = bestSignal.room;
     const lastSeen = now - bestSignal.timestamp;
     
-    // Визначити статус столика
     let status = 'active';
     if (lastSeen > TABLE_STALE_TIMEOUT) {
       status = 'stale';
-      staleCount++;
     } else if (lastSeen > TABLE_INACTIVE_TIMEOUT) {
       status = 'inactive';
-      inactiveCount++;
     } else if (lastSeen > TABLE_WARNING_TIMEOUT) {
       status = 'warning';
-      warningCount++;
     } else {
       activeCount++;
     }
     
-    // Додати столик в найкращу кімнату
     if (rooms[room]) {
       rooms[room].tables[tableId] = {
         rssi: bestSignal.rssi,
@@ -664,14 +619,12 @@ function processAndRender() {
     }
   }
   
-  // Stats
   const roomCount = Object.keys(rooms).length;
   const tableCount = Object.keys(tables).length;
   const masterCount = Object.keys(masters).filter(id => masters[id].active).length;
   
-  console.log(`📊 State: ${roomCount} rooms, ${tableCount} tables (✓${activeCount} ⚠${warningCount} ✗${inactiveCount} ⏸${staleCount})`);
+  console.log(`📊 State: ${roomCount} rooms, ${tableCount} tables (✓${activeCount})`);
   
-  // Render
   renderDashboard(rooms, roomCount, tableCount, activeCount, masterCount);
   updateServerInfo();
 }
@@ -689,7 +642,6 @@ function renderDashboard(rooms, roomCount, tableCount, activeCount, masterCount)
   }
   
   let html = '';
-  
   let roomNames = Object.keys(rooms).sort();
   
   roomNames.forEach(roomName => {
@@ -725,10 +677,8 @@ function renderDashboard(rooms, roomCount, tableCount, activeCount, masterCount)
         let status = table.status || 'active';
         let rssi = table.rssi || 0;
         let lastSeen = table.last_seen || 0;
-        
         let lastSeenText = formatTime(lastSeen);
         
-        // Емодзі для статусу
         let statusEmoji = {
           'active': '✓',
           'warning': '⚠',
@@ -766,9 +716,9 @@ function updateStatus(state, text) {
 }
 
 function updateServerInfo() {
-  const roomCount = Object.keys(masters).filter(id => masters[id].active).length;
+  const masterCount = Object.keys(masters).filter(id => masters[id].active).length;
   document.getElementById('server-info').textContent = 
-    `Client: ${roomCount} Master${roomCount !== 1 ? 's' : ''} online`;
+    `Broker: broker.emqx.io | ${masterCount} Master${masterCount !== 1 ? 's' : ''}`;
 }
 
 function formatTime(ms) {
@@ -785,7 +735,6 @@ function updateStats(rooms, tables, active, masters) {
   document.getElementById('stat-masters').textContent = masters;
 }
 
-// Auto cleanup старих даних
 setInterval(() => {
   const now = Date.now();
   for (let tableId in tables) {
@@ -797,9 +746,8 @@ setInterval(() => {
     }
   }
   processAndRender();
-}, 60000); // Кожну хвилину
+}, 60000);
 
-// Initial render
 renderDashboard({}, 0, 0, 0, 0);
 </script>
 
