@@ -285,24 +285,140 @@ body {
   import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
   // ===== FIREBASE CONFIG =====
-  // ЗАМІНИТИ на свою конфігурацію з Firebase Console!
-   const firebaseConfig = {
+  const firebaseConfig = {
     apiKey: "AIzaSyCWNko1tniaerF3b9Wi8HDS0muhymvIVoQ",
     authDomain: "table-tracker-712c8.firebaseapp.com",
-    databaseURL: "https://table-tracker-712c8-default-rtdb.europe-west1.firebasedatabase.app",  // ← ДОДАНО!
+    databaseURL: "https://table-tracker-712c8-default-rtdb.europe-west1.firebasedatabase.app",
     projectId: "table-tracker-712c8",
     storageBucket: "table-tracker-712c8.firebasestorage.app",
     messagingSenderId: "868274806628",
     appId: "1:868274806628:web:36b9ec7ae969ab3ec2e471"
   };
 
-  // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const database = getDatabase(app);
 
   console.log('🔥 Firebase initialized');
 
   let updateCount = 0;
+
+  // ===== HYSTERESIS CONFIG =====
+  const RSSI_HYSTERESIS = 5;  // dBm різниця для зміни кімнати
+  const TIME_THRESHOLD = 5000; // 5 секунд перед переміщенням
+
+  // Зберігаємо останнє місцезнаходження столиків
+  let tableLocations = {}; // {tableId: {room, rssi, timestamp, confirmed}}
+
+  // ===== ASSIGN TABLE TO ROOM =====
+  function assignTablesToRooms(rooms) {
+    const now = Date.now();
+    const allTables = {}; // {tableId: [{room, rssi, updated}, ...]}
+    
+    // Збираємо всі столики з усіх кімнат
+    for (let roomName in rooms) {
+      const room = rooms[roomName];
+      const lastUpdate = (room.updated || 0) * 1000; // Convert to ms
+      const age = now - lastUpdate;
+      
+      if (age > 60000) continue; // Skip old data (>60 sec)
+      
+      const tables = room.tables || [];
+      tables.forEach(table => {
+        if (!allTables[table.id]) {
+          allTables[table.id] = [];
+        }
+        allTables[table.id].push({
+          room: roomName,
+          rssi: table.rssi,
+          last_seen: table.last_seen,
+          updated: lastUpdate
+        });
+      });
+    }
+    
+    // Визначаємо в якій кімнаті має бути кожен столик
+    const roomAssignments = {}; // {roomName: [tables]}
+    
+    for (let tableId in allTables) {
+      const sightings = allTables[tableId];
+      
+      // Знайти найсильніший сигнал
+      let bestSighting = sightings.reduce((best, current) => {
+        return current.rssi > best.rssi ? current : best;
+      });
+      
+      // Перевірити чи столик вже був присвоєний
+      const prevLocation = tableLocations[tableId];
+      
+      if (prevLocation && prevLocation.confirmed) {
+        // Столик вже підтверджено в кімнаті
+        // Перевірити чи треба його переміщати
+        
+        const currentInPrevRoom = sightings.find(s => s.room === prevLocation.room);
+        
+        if (currentInPrevRoom) {
+          // Столик все ще видно в попередній кімнаті
+          const rssiDiff = bestSighting.rssi - currentInPrevRoom.rssi;
+          
+          if (rssiDiff > RSSI_HYSTERESIS) {
+            // Новий сигнал значно сильніший
+            const timeSinceChange = now - prevLocation.timestamp;
+            
+            if (timeSinceChange > TIME_THRESHOLD) {
+              // Достатньо часу пройшло - переміщуємо
+              console.log(`Table ${tableId}: ${prevLocation.room} → ${bestSighting.room} (${rssiDiff}dB)`);
+              tableLocations[tableId] = {
+                room: bestSighting.room,
+                rssi: bestSighting.rssi,
+                timestamp: now,
+                confirmed: true
+              };
+            } else {
+              // Ще не час - залишаємо в попередній кімнаті
+              bestSighting = currentInPrevRoom;
+            }
+          } else {
+            // Сигнал недостатньо сильніший - залишаємо
+            bestSighting = currentInPrevRoom;
+            tableLocations[tableId].timestamp = now; // Update timestamp
+          }
+        } else {
+          // Столик більше не видно в попередній кімнаті - переміщуємо одразу
+          console.log(`Table ${tableId}: ${prevLocation.room} → ${bestSighting.room} (not visible in prev)`);
+          tableLocations[tableId] = {
+            room: bestSighting.room,
+            rssi: bestSighting.rssi,
+            timestamp: now,
+            confirmed: true
+          };
+        }
+      } else {
+        // Новий столик або не підтверджений - присвоюємо
+        tableLocations[tableId] = {
+          room: bestSighting.room,
+          rssi: bestSighting.rssi,
+          timestamp: now,
+          confirmed: true
+        };
+      }
+      
+      // Додати столик до присвоєної кімнати
+      const assignedRoom = tableLocations[tableId].room;
+      const tableData = sightings.find(s => s.room === assignedRoom);
+      
+      if (!roomAssignments[assignedRoom]) {
+        roomAssignments[assignedRoom] = [];
+      }
+      
+      roomAssignments[assignedRoom].push({
+        id: tableId,
+        rssi: tableData.rssi,
+        last_seen: tableData.last_seen
+      });
+    }
+    
+    return roomAssignments;
+  }
 
   // Listen to /rooms
   const roomsRef = ref(database, 'rooms');
@@ -331,6 +447,10 @@ body {
 
   function render(rooms) {
     const now = Date.now();
+    
+    // Присвоїти столики до кімнат
+    const roomAssignments = assignTablesToRooms(rooms);
+    
     let totalRooms = 0;
     let totalTables = 0;
     let activeTables = 0;
@@ -338,25 +458,20 @@ body {
     
     let html = '';
     
-    for (let roomName in rooms) {
-      const room = rooms[roomName];
+    for (let roomName in roomAssignments) {
+      const tables = roomAssignments[roomName];
       
-      // Check if master is active (< 60 sec)
-      const lastUpdate = room.updated || 0;
-      const age = now / 1000 - lastUpdate;
-      
-      if (age > 60) continue; // Skip old data
+      if (tables.length === 0) continue;
       
       totalRooms++;
-      activeMasters++;
-      
-      const tables = room.tables || [];
       totalTables += tables.length;
       
       // Count active
       tables.forEach(table => {
         if (table.last_seen < 30000) activeTables++;
       });
+      
+      activeMasters++; // Assume 1 master per room with tables
       
       // Sort tables by ID
       const sortedTables = tables.sort((a, b) => a.id - b.id);
