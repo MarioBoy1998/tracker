@@ -331,286 +331,200 @@ body {
 
 <!-- Firebase SDK -->
 <script type="module">
-  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-  import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
-  // ===== FIREBASE CONFIG =====
-  const firebaseConfig = {
-    apiKey: "AIzaSyCWNko1tniaerF3b9Wi8HDS0muhymvIVoQ",
-    authDomain: "table-tracker-712c8.firebaseapp.com",
-    databaseURL: "https://table-tracker-712c8-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "table-tracker-712c8",
-    storageBucket: "table-tracker-712c8.firebasestorage.app",
-    messagingSenderId: "868274806628",
-    appId: "1:868274806628:web:36b9ec7ae969ab3ec2e471"
-  };
+const firebaseConfig = {
+  apiKey: "AIzaSyCWNko1tniaerF3b9Wi8HDS0muhymvIVoQ",
+  authDomain: "table-tracker-712c8.firebaseapp.com",
+  databaseURL: "https://table-tracker-712c8-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "table-tracker-712c8",
+  storageBucket: "table-tracker-712c8.firebasestorage.app",
+  messagingSenderId: "868274806628",
+  appId: "1:868274806628:web:36b9ec7ae969ab3ec2e471"
+};
 
-  const app = initializeApp(firebaseConfig);
-  const database = getDatabase(app);
+const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
 
-  console.log('🔥 Firebase initialized');
+console.log("🔥 Firebase connected");
 
-  let updateCount = 0;
+// =======================
+// CONFIG
+// =======================
+const RSSI_HYSTERESIS = 5;
+const TIME_THRESHOLD = 5000;
+const MASTER_TIMEOUT = 60000;
+const TABLE_TTL = 10 * 60 * 1000; // 10 min
 
-  // ===== HYSTERESIS CONFIG =====
-  const RSSI_HYSTERESIS = 5;
-  const TIME_THRESHOLD = 5000;
-  const MASTER_TIMEOUT = 60000; // 60 seconds
+let updateCount = 0;
+let tableLocations = {}; // persistent world model
 
-  let tableLocations = {};
+// =======================
+// ASSIGN TABLES
+// =======================
+function assignTablesToRooms(rooms) {
+  const now = Date.now();
+  const allTables = {};
 
-  // ===== ASSIGN TABLES TO ROOMS =====
-  function assignTablesToRooms(rooms) {
-    const now = Date.now();
-    const allTables = {};
-    
-    for (let roomName in rooms) {
-      const room = rooms[roomName];
-      const lastUpdate = (room.updated || 0) * 1000;
-      const age = now - lastUpdate;
-      
-      if (age > MASTER_TIMEOUT) continue;
-      
-      const tables = room.tables || [];
-      tables.forEach(table => {
-        if (!allTables[table.id]) {
-          allTables[table.id] = [];
-        }
-        allTables[table.id].push({
-          room: roomName,
-          rssi: table.rssi,
-          last_seen: table.last_seen,
-          updated: lastUpdate
-        });
+  // Gather all sightings
+  for (let roomName in rooms) {
+    const room = rooms[roomName];
+    const lastUpdate = (room.updated || 0) * 1000;
+    const masterAge = now - lastUpdate;
+    const masterOnline = masterAge < MASTER_TIMEOUT;
+
+    const tables = room.tables || [];
+    tables.forEach(table => {
+      if (!allTables[table.id]) allTables[table.id] = [];
+      allTables[table.id].push({
+        room: roomName,
+        rssi: table.rssi,
+        last_seen: table.last_seen,
+        masterOnline
       });
-    }
-    
-    const roomAssignments = {};
-    
-    for (let tableId in allTables) {
-      const sightings = allTables[tableId];
-      
-      let bestSighting = sightings.reduce((best, current) => {
-        return current.rssi > best.rssi ? current : best;
-      });
-      
-      const prevLocation = tableLocations[tableId];
-      
-      if (prevLocation && prevLocation.confirmed) {
-        const currentInPrevRoom = sightings.find(s => s.room === prevLocation.room);
-        
-        if (currentInPrevRoom) {
-          const rssiDiff = bestSighting.rssi - currentInPrevRoom.rssi;
-          
-          if (rssiDiff > RSSI_HYSTERESIS) {
-            const timeSinceChange = now - prevLocation.timestamp;
-            
-            if (timeSinceChange > TIME_THRESHOLD) {
-              console.log(`Table ${tableId}: ${prevLocation.room} → ${bestSighting.room} (${rssiDiff}dB)`);
-              tableLocations[tableId] = {
-                room: bestSighting.room,
-                rssi: bestSighting.rssi,
-                timestamp: now,
-                confirmed: true
-              };
-            } else {
-              bestSighting = currentInPrevRoom;
-            }
-          } else {
-            bestSighting = currentInPrevRoom;
-            tableLocations[tableId].timestamp = now;
-          }
+    });
+  }
+
+  const roomAssignments = {};
+
+  // Resolve best room per table
+  for (let tableId in allTables) {
+    const sightings = allTables[tableId];
+    let best = sightings.reduce((a, b) => b.rssi > a.rssi ? b : a);
+    const prev = tableLocations[tableId];
+
+    if (prev) {
+      const prevSighting = sightings.find(s => s.room === prev.room);
+      if (prevSighting) {
+        const diff = best.rssi - prevSighting.rssi;
+        if (diff > RSSI_HYSTERESIS && (now - prev.timestamp) > TIME_THRESHOLD) {
+          best = best;
         } else {
-          console.log(`Table ${tableId}: ${prevLocation.room} → ${bestSighting.room} (not visible in prev)`);
-          tableLocations[tableId] = {
-            room: bestSighting.room,
-            rssi: bestSighting.rssi,
-            timestamp: now,
-            confirmed: true
-          };
+          best = prevSighting;
         }
-      } else {
-        tableLocations[tableId] = {
-          room: bestSighting.room,
-          rssi: bestSighting.rssi,
-          timestamp: now,
-          confirmed: true
-        };
       }
-      
-      const assignedRoom = tableLocations[tableId].room;
-      const tableData = sightings.find(s => s.room === assignedRoom);
-      
-      if (!roomAssignments[assignedRoom]) {
-        roomAssignments[assignedRoom] = [];
-      }
-      
-      roomAssignments[assignedRoom].push({
+    }
+
+    tableLocations[tableId] = {
+      room: best.room,
+      rssi: best.rssi,
+      timestamp: now
+    };
+
+    if (!roomAssignments[best.room]) roomAssignments[best.room] = [];
+    roomAssignments[best.room].push({
+      id: tableId,
+      rssi: best.rssi,
+      last_seen: best.last_seen
+    });
+  }
+
+  // Persist disappeared tables
+  for (let tableId in tableLocations) {
+    if (!allTables[tableId]) {
+      const prev = tableLocations[tableId];
+      if (!roomAssignments[prev.room]) roomAssignments[prev.room] = [];
+      roomAssignments[prev.room].push({
         id: tableId,
-        rssi: tableData.rssi,
-        last_seen: tableData.last_seen
+        rssi: prev.rssi,
+        last_seen: 9999999
       });
     }
-    
-    return roomAssignments;
   }
 
-  // Listen to /rooms
-  const roomsRef = ref(database, 'rooms');
-  
-  onValue(roomsRef, (snapshot) => {
-    updateCount++;
-    
-    document.getElementById('status').className = 'status online';
-    document.getElementById('status').textContent = 'ONLINE';
-    document.getElementById('update-count').textContent = updateCount;
-    document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
-    
-    const data = snapshot.val();
-    console.log('📨 Firebase update:', data);
-    
-    if (data) {
-      render(data);
-    } else {
-      showEmpty();
+  // Garbage collector
+  for (let id in tableLocations) {
+    if (now - tableLocations[id].timestamp > TABLE_TTL) {
+      console.log("🧹 Removing dead table", id);
+      delete tableLocations[id];
     }
-  }, (error) => {
-    console.error('❌ Firebase error:', error);
-    document.getElementById('status').className = 'status offline';
-    document.getElementById('status').textContent = 'ERROR';
-  });
+  }
 
-  function render(rooms) {
-    const now = Date.now();
-    
-    // Присвоїти столики до кімнат
-    const roomAssignments = assignTablesToRooms(rooms);
-    
-    let totalRooms = 0;
-    let totalTables = 0;
-    let activeTables = 0;
-    let activeMasters = 0;
-    
-    let html = '';
-    
-    // ✅ ПОКАЗУВАТИ ВСІ КІМНАТИ (навіть без столиків)
-    for (let roomName in rooms) {
-      const roomData = rooms[roomName];
-      const tables = roomAssignments[roomName] || [];
-      
-      totalRooms++;
-      totalTables += tables.length;
-      
-      // Перевірити чи Master online
-      const lastUpdate = (roomData.updated || 0) * 1000;
-      const masterAge = now - lastUpdate;
-      const masterOnline = masterAge < MASTER_TIMEOUT;
-      
-      if (masterOnline) {
-        activeMasters++;
-      }
-      
-      // Count active tables
-      tables.forEach(table => {
-        if (table.last_seen < 30000) activeTables++;
-      });
-      
-      // Master info
-      const masterId = roomData.master_id || 'unknown';
-      const lastUpdateStr = lastUpdate > 0 
-        ? new Date(lastUpdate).toLocaleTimeString() 
-        : '--:--:--';
-      
-      const ageSeconds = Math.floor(masterAge / 1000);
-      const ageStr = ageSeconds < 60 
-        ? `${ageSeconds}s ago` 
-        : `${Math.floor(ageSeconds / 60)}m ago`;
-      
-      // Sort tables by ID
-      const sortedTables = tables.sort((a, b) => a.id - b.id);
-      
+  return roomAssignments;
+}
+
+// =======================
+// FIREBASE LISTENER
+// =======================
+const roomsRef = ref(database, 'rooms');
+
+onValue(roomsRef, snapshot => {
+  updateCount++;
+  document.getElementById('status').className = 'status online';
+  document.getElementById('status').textContent = 'ONLINE';
+  document.getElementById('update-count').textContent = updateCount;
+  document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+
+  const data = snapshot.val();
+  if (data) render(data);
+  else showEmpty();
+});
+
+// =======================
+// RENDER
+// =======================
+function render(rooms) {
+  const now = Date.now();
+  const roomAssignments = assignTablesToRooms(rooms);
+
+  let html = '';
+  let totalRooms = 0;
+  let totalTables = 0;
+  let activeTables = 0;
+  let activeMasters = 0;
+
+  for (let roomName in rooms) {
+    const room = rooms[roomName];
+    const tables = roomAssignments[roomName] || [];
+
+    totalRooms++;
+    totalTables += tables.length;
+
+    const lastUpdate = (room.updated || 0) * 1000;
+    const masterOnline = (now - lastUpdate) < MASTER_TIMEOUT;
+    if (masterOnline) activeMasters++;
+
+    tables.forEach(t => { if (t.last_seen < 30000) activeTables++; });
+
+    html += `
+    <div class="room-section ${masterOnline ? '' : 'offline'}">
+      <div class="room-header">
+        <div class="room-title">${roomName}</div>
+      </div>
+      <div class="table-grid">`;
+
+    tables.sort((a,b)=>a.id-b.id).forEach(t=>{
+      const status = getStatus(t.last_seen);
       html += `
-      <div class="room-section ${masterOnline ? '' : 'offline'}">
-        <div class="room-header">
-          <div class="room-header-left">
-            <div class="room-title">${roomName}</div>
-            <div class="master-status ${masterOnline ? 'online' : 'offline'}">
-              ${masterOnline ? '● ONLINE' : '○ OFFLINE'}
-            </div>
-          </div>
-          <div class="room-info">
-            <div class="room-info-item">
-              <span class="room-info-label">Master:</span>
-              <span class="room-info-value">${masterId}</span>
-            </div>
-            <div class="room-info-item">
-              <span class="room-info-label">Tables:</span>
-              <span class="room-info-value">${tables.length}</span>
-            </div>
-            <div class="room-info-item">
-              <span class="room-info-label">Updated:</span>
-              <span class="room-info-value">${ageStr}</span>
-            </div>
-          </div>
+        <div class="table-item ${status}">
+          <div class="table-id">${t.id}</div>
+          <div class="table-rssi">${t.rssi} dBm</div>
         </div>`;
-      
-      if (tables.length === 0) {
-        html += `
-        <div class="empty-room">
-          No tables detected in this room
-        </div>`;
-      } else {
-        html += '<div class="table-grid">';
-        
-        sortedTables.forEach(table => {
-          const status = getStatus(table.last_seen);
-          
-          html += `
-          <div class="table-item ${status}">
-            <div class="table-id">${table.id}</div>
-            <div class="table-rssi">${table.rssi} dBm</div>
-            <div class="table-status">${status}</div>
-          </div>`;
-        });
-        
-        html += '</div>';
-      }
-      
-      html += '</div>';
-    }
-    
-    if (html === '') {
-      showEmpty();
-    } else {
-      document.getElementById('content').innerHTML = html;
-    }
-    
-    // Update stats
-    document.getElementById('stat-rooms').textContent = totalRooms;
-    document.getElementById('stat-tables').textContent = totalTables;
-    document.getElementById('stat-active').textContent = activeTables;
-    document.getElementById('stat-masters').textContent = activeMasters;
+    });
+
+    html += `</div></div>`;
   }
 
-  function showEmpty() {
-    document.getElementById('content').innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">—</div>
-        <div class="empty-text">NO ACTIVE MASTERS</div>
-      </div>`;
-    
-    document.getElementById('stat-rooms').textContent = 0;
-    document.getElementById('stat-tables').textContent = 0;
-    document.getElementById('stat-active').textContent = 0;
-    document.getElementById('stat-masters').textContent = 0;
-  }
+  document.getElementById("content").innerHTML = html;
+  document.getElementById("stat-rooms").textContent = totalRooms;
+  document.getElementById("stat-tables").textContent = totalTables;
+  document.getElementById("stat-active").textContent = activeTables;
+  document.getElementById("stat-masters").textContent = activeMasters;
+}
 
-  function getStatus(lastSeen) {
-    if (lastSeen < 30000) return 'active';
-    if (lastSeen < 900000) return 'warning';
-    return 'inactive';
-  }
+// =======================
+function showEmpty() {
+  document.getElementById("content").innerHTML = "NO DATA";
+}
+
+function getStatus(lastSeen) {
+  if (lastSeen < 30000) return 'active';
+  if (lastSeen < 900000) return 'warning';
+  return 'inactive';
+}
 </script>
+
 
 </body>
 </html>
