@@ -21,14 +21,16 @@ body {
 .header {
   background: #0a0a0a;
   border-bottom: 1px solid #1a1a1a;
-  padding: 20px 30px;
+  padding: 15px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .header h1 {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: #dc2626;
   text-transform: uppercase;
@@ -36,9 +38,9 @@ body {
 }
 
 .status {
-  padding: 6px 16px;
+  padding: 5px 12px;
   border-radius: 3px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -57,26 +59,29 @@ body {
 .stats-bar {
   background: #0a0a0a;
   border-bottom: 1px solid #1a1a1a;
-  padding: 15px 30px;
+  padding: 12px 20px;
   display: flex;
-  gap: 40px;
+  gap: 20px;
+  flex-wrap: wrap;
+  overflow-x: auto;
 }
 
 .stat {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 60px;
 }
 
 .stat-label {
-  font-size: 10px;
+  font-size: 9px;
   color: #666;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .stat-value {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   color: #fff;
 }
@@ -86,14 +91,16 @@ body {
 }
 
 .content {
-  padding: 30px;
+  padding: 15px;
+  max-width: 1600px;
+  margin: 0 auto;
 }
 
 .room-section {
   background: #0a0a0a;
   border: 1px solid #1a1a1a;
   border-radius: 4px;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
   overflow: hidden;
 }
 
@@ -105,20 +112,23 @@ body {
 .room-header {
   background: #0d0d0d;
   border-bottom: 1px solid #1a1a1a;
-  padding: 15px 20px;
+  padding: 12px 15px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .room-header-left {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .room-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #fff;
   text-transform: uppercase;
@@ -126,10 +136,11 @@ body {
 }
 
 .master-status {
-  font-size: 11px;
+  font-size: 10px;
   padding: 3px 8px;
   border-radius: 2px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .master-status.online {
@@ -144,14 +155,16 @@ body {
 
 .room-info {
   display: flex;
-  gap: 20px;
-  font-size: 11px;
+  gap: 15px;
+  font-size: 10px;
   color: #666;
+  flex-wrap: wrap;
 }
 
 .room-info-item {
   display: flex;
   gap: 5px;
+  white-space: nowrap;
 }
 
 .room-info-label {
@@ -162,28 +175,55 @@ body {
   color: #888;
 }
 
+/* Адаптивна сітка для столиків */
 .table-grid {
-  padding: 20px;
+  padding: 15px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-  gap: 15px;
+  gap: 10px;
+  
+  /* Мобілка: 3 столика */
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* Планшет: 6 столиків */
+@media (min-width: 600px) {
+  .table-grid {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+  }
+}
+
+/* Десктоп малий: 8 столиків */
+@media (min-width: 900px) {
+  .table-grid {
+    grid-template-columns: repeat(8, 1fr);
+    gap: 15px;
+  }
+}
+
+/* Десктоп великий: 12 столиків */
+@media (min-width: 1400px) {
+  .table-grid {
+    grid-template-columns: repeat(12, 1fr);
+  }
 }
 
 .empty-room {
-  padding: 40px 20px;
+  padding: 30px 15px;
   text-align: center;
   color: #444;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .table-item {
   background: #0d0d0d;
   border: 2px solid #1a1a1a;
   border-radius: 4px;
-  padding: 15px;
+  padding: 10px 8px;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s;
+  position: relative;
 }
 
 .table-item:hover {
@@ -206,25 +246,44 @@ body {
   background: #1a0808;
 }
 
+.table-item.moving {
+  border-color: #9333ea;
+  background: #1e1034;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 .table-id {
-  font-size: 28px;
+  font-size: 20px;
   font-weight: 700;
   color: #fff;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 
 .table-rssi {
-  font-size: 11px;
+  font-size: 10px;
   color: #666;
   font-weight: 600;
 }
 
 .table-status {
-  font-size: 9px;
+  font-size: 8px;
   color: #444;
-  margin-top: 5px;
+  margin-top: 4px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.table-confidence {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 8px;
+  color: #666;
 }
 
 .empty-state {
@@ -246,15 +305,16 @@ body {
 
 .footer-info {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  bottom: 10px;
+  right: 10px;
   background: #0a0a0a;
   border: 1px solid #1a1a1a;
   border-radius: 4px;
-  padding: 12px 16px;
-  font-size: 10px;
+  padding: 8px 12px;
+  font-size: 9px;
   color: #666;
   font-family: 'Courier New', monospace;
+  z-index: 1000;
 }
 
 .footer-info .label {
@@ -287,6 +347,48 @@ body {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Mobile optimizations */
+@media (max-width: 600px) {
+  .header {
+    padding: 12px 15px;
+  }
+  
+  .header h1 {
+    font-size: 14px;
+  }
+  
+  .stats-bar {
+    padding: 10px 15px;
+    gap: 15px;
+  }
+  
+  .stat-value {
+    font-size: 18px;
+  }
+  
+  .content {
+    padding: 10px;
+  }
+  
+  .room-header {
+    padding: 10px 12px;
+  }
+  
+  .table-grid {
+    padding: 10px;
+    gap: 8px;
+  }
+  
+  .table-id {
+    font-size: 18px;
+  }
+  
+  .footer-info {
+    font-size: 8px;
+    padding: 6px 10px;
+  }
 }
 </style>
 </head>
@@ -329,12 +431,11 @@ body {
   <div><span class="label">Last:</span> <span class="value" id="last-update">--:--:--</span></div>
 </div>
 
-<!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
-/* ================= FIREBASE ================= */
+/* ================= FIREBASE CONFIG ================= */
 const firebaseConfig = {
   apiKey: "AIzaSyCWNko1tniaerF3b9Wi8HDS0muhymvIVoQ",
   authDomain: "table-tracker-712c8.firebaseapp.com",
@@ -346,191 +447,409 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+const database = getDatabase(app);
+
+console.log('🔥 Firebase initialized');
 
 /* ================= CONFIG ================= */
-const RSSI_HYSTERESIS = 5;
-const TIME_THRESHOLD = 5000;
-const TABLE_TTL = 10 * 60 * 1000;
+const RSSI_HYSTERESIS = 8;           // 8 dBm різниця для переміщення
+const TIME_THRESHOLD = 15000;         // 15 секунд перед переміщенням
+const MASTER_SYNC_WINDOW = 10000;     // 10 секунд - вікно синхронізації Masters
+const MASTER_TIMEOUT = 60000;         // 60 секунд - Master offline
+const CONFIDENCE_THRESHOLD = 0.7;     // 70% впевненості для переміщення
 
-const ROOM_VISIBLE_TTL = 5 * 60 * 1000;   // <5m -> show
-const ROOM_DEAD_WARN   = 15 * 60 * 1000;  // >15m -> red
-const ROOM_DELETE_TTL = 30 * 60 * 1000;  // >30m -> delete
-
-let tableLocations = {};
 let updateCount = 0;
+let tableLocations = {};              // Поточне розташування столиків
+let masterUpdateTimes = {};           // Час останнього оновлення кожного Master
+let tableHistory = {};                // Історія сигналів для кожного столика
 
-/* ================= REKEY ================= */
-let roomsLocked = false;
-let rekeyBaseline = null;
-let lockedRooms = {};
-
-window.rekey = () => {
-  console.log("🔐 REKEY");
-  tableLocations = {};
-  roomsLocked = true;
-  lockedRooms = {};
-  rekeyBaseline = null;
-};
-
-/* ================= HELPERS ================= */
-function roomAge(room) {
-  const u = (room.updated || 0) * 1000;
-  return Date.now() - u;
+/* ================= БУФЕРИЗАЦІЯ ДАНИХ ================= */
+// Зберігаємо історію останніх 3 оновлень для кожного столика
+function updateTableHistory(tableId, roomName, rssi, timestamp) {
+  if (!tableHistory[tableId]) {
+    tableHistory[tableId] = [];
+  }
+  
+  tableHistory[tableId].push({
+    room: roomName,
+    rssi: rssi,
+    timestamp: timestamp
+  });
+  
+  // Тримаємо тільки останні 3 записи
+  if (tableHistory[tableId].length > 3) {
+    tableHistory[tableId].shift();
+  }
 }
 
-function roomState(room) {
-  const age = roomAge(room);
-  if (age < ROOM_VISIBLE_TTL) return "alive";
-  if (age < ROOM_DEAD_WARN) return "hidden";
-  if (age < ROOM_DELETE_TTL) return "dead";
-  return "delete";
+// Отримати усереднений RSSI для столика в кімнаті
+function getAverageRSSI(tableId, roomName) {
+  if (!tableHistory[tableId]) return null;
+  
+  const roomReadings = tableHistory[tableId].filter(h => h.room === roomName);
+  if (roomReadings.length === 0) return null;
+  
+  const sum = roomReadings.reduce((acc, r) => acc + r.rssi, 0);
+  return sum / roomReadings.length;
 }
 
-/* ================= ASSIGN TABLES ================= */
+// Обчислити впевненість у розташуванні столика
+function calculateConfidence(tableId, roomName, allSightings) {
+  if (!tableHistory[tableId] || tableHistory[tableId].length < 2) {
+    return 0.5; // Низька впевненість для нових столиків
+  }
+  
+  const recentHistory = tableHistory[tableId].slice(-3);
+  const roomCount = recentHistory.filter(h => h.room === roomName).length;
+  
+  // Впевненість = скільки разів столик бачили в цій кімнаті / загальна кількість
+  return roomCount / recentHistory.length;
+}
+
+/* ================= ПЕРЕВІРКА СИНХРОНІЗАЦІЇ MASTERS ================= */
+function areMastersSynced(rooms) {
+  const now = Date.now();
+  const activeMasters = Object.keys(rooms).filter(roomName => {
+    const lastUpdate = (rooms[roomName].updated || 0) * 1000;
+    return (now - lastUpdate) < MASTER_TIMEOUT;
+  });
+  
+  if (activeMasters.length === 0) return true; // Немає Masters - нема проблеми
+  if (activeMasters.length === 1) return true; // Один Master - завжди синхронізований
+  
+  // Перевірити чи всі активні Masters оновились недавно
+  const updateTimes = activeMasters.map(roomName => {
+    return (rooms[roomName].updated || 0) * 1000;
+  });
+  
+  const maxTime = Math.max(...updateTimes);
+  const minTime = Math.min(...updateTimes);
+  
+  // Якщо різниця між оновленнями > MASTER_SYNC_WINDOW - Masters не синхронізовані
+  return (maxTime - minTime) < MASTER_SYNC_WINDOW;
+}
+
+/* ================= РОЗУМНЕ ВИЗНАЧЕННЯ КІМНАТИ ================= */
 function assignTablesToRooms(rooms) {
   const now = Date.now();
-  const all = {};
-
-  for (let r in rooms) {
-    (rooms[r].tables || []).forEach(t => {
-      if (!all[t.id]) all[t.id] = [];
-      all[t.id].push({ room: r, rssi: t.rssi, last_seen: t.last_seen });
+  const allTables = {};
+  
+  // Збираємо всі сигнали від усіх столиків
+  for (let roomName in rooms) {
+    const room = rooms[roomName];
+    const lastUpdate = (room.updated || 0) * 1000;
+    const age = now - lastUpdate;
+    
+    if (age > MASTER_TIMEOUT) continue;
+    
+    // Оновити час останнього оновлення Master
+    masterUpdateTimes[roomName] = lastUpdate;
+    
+    const tables = room.tables || [];
+    tables.forEach(table => {
+      if (!allTables[table.id]) {
+        allTables[table.id] = [];
+      }
+      
+      allTables[table.id].push({
+        room: roomName,
+        rssi: table.rssi,
+        last_seen: table.last_seen,
+        updated: lastUpdate
+      });
+      
+      // Додати до історії
+      updateTableHistory(table.id, roomName, table.rssi, lastUpdate);
     });
   }
-
-  const map = {};
-
-  for (let id in all) {
-    const sightings = all[id];
-    let best = sightings.reduce((a,b)=>b.rssi>a.rssi?b:a);
-    const prev = tableLocations[id];
-
-    if (prev) {
-      const p = sightings.find(s=>s.room===prev.room);
-      if (p && best.rssi - p.rssi < RSSI_HYSTERESIS) best = p;
-    }
-
-    tableLocations[id] = { room: best.room, rssi: best.rssi, timestamp: now };
-
-    if (!map[best.room]) map[best.room] = [];
-    map[best.room].push({ id, rssi: best.rssi, last_seen: best.last_seen });
-  }
-
-  // persist only into ALIVE or DEAD rooms (not hidden, not deleted)
-  for (let id in tableLocations) {
-    if (!all[id]) {
-      const prev = tableLocations[id];
-      const room = rooms[prev.room];
-      if (!room) continue;
-
-      const state = roomState(room);
-      if (state === "alive" || state === "dead") {
-        if (!map[prev.room]) map[prev.room] = [];
-        map[prev.room].push({ id, rssi: prev.rssi, last_seen: 9999999 });
+  
+  // Перевірити чи Masters синхронізовані
+  const mastersSync = areMastersSynced(rooms);
+  
+  const roomAssignments = {};
+  
+  for (let tableId in allTables) {
+    const sightings = allTables[tableId];
+    
+    // Знайти кімнату з найсильнішим сигналом
+    let bestSighting = sightings.reduce((best, current) => {
+      return current.rssi > best.rssi ? current : best;
+    });
+    
+    // Отримати попереднє розташування
+    const prevLocation = tableLocations[tableId];
+    
+    if (prevLocation && prevLocation.confirmed) {
+      // Столик вже був присвоєний
+      
+      // Знайти поточний сигнал у попередній кімнаті
+      const currentInPrevRoom = sightings.find(s => s.room === prevLocation.room);
+      
+      if (currentInPrevRoom) {
+        // Столик все ще видно в попередній кімнаті
+        
+        const rssiDiff = bestSighting.rssi - currentInPrevRoom.rssi;
+        
+        // Використати усереднений RSSI якщо є історія
+        const avgBest = getAverageRSSI(tableId, bestSighting.room);
+        const avgPrev = getAverageRSSI(tableId, prevLocation.room);
+        
+        const effectiveRssiDiff = avgBest && avgPrev 
+          ? avgBest - avgPrev 
+          : rssiDiff;
+        
+        if (effectiveRssiDiff > RSSI_HYSTERESIS) {
+          // Новий сигнал значно сильніший
+          
+          const timeSinceChange = now - prevLocation.timestamp;
+          const confidence = calculateConfidence(tableId, bestSighting.room, sightings);
+          
+          // Перевірити умови переміщення:
+          // 1. Достатньо часу пройшло
+          // 2. Висока впевненість
+          // 3. Masters синхронізовані (або немає інших Masters)
+          if (timeSinceChange > TIME_THRESHOLD && 
+              confidence >= CONFIDENCE_THRESHOLD &&
+              mastersSync) {
+            
+            console.log(`📍 Table ${tableId}: ${prevLocation.room} → ${bestSighting.room} (${effectiveRssiDiff.toFixed(1)}dB, conf: ${(confidence*100).toFixed(0)}%)`);
+            
+            tableLocations[tableId] = {
+              room: bestSighting.room,
+              rssi: bestSighting.rssi,
+              timestamp: now,
+              confirmed: true,
+              confidence: confidence,
+              moving: false
+            };
+          } else {
+            // Умови не виконані - залишаємо в попередній кімнаті
+            // Але позначаємо як "moving" якщо почалось переміщення
+            if (timeSinceChange > 0 && effectiveRssiDiff > RSSI_HYSTERESIS) {
+              tableLocations[tableId].moving = true;
+            }
+            
+            bestSighting = currentInPrevRoom;
+          }
+        } else {
+          // Сигнал недостатньо сильніший - залишаємо
+          bestSighting = currentInPrevRoom;
+          tableLocations[tableId].timestamp = now;
+          tableLocations[tableId].moving = false;
+        }
+      } else {
+        // Столик більше не видно в попередній кімнаті
+        // Миттєво переміщуємо (бо немає вибору)
+        
+        console.log(`📍 Table ${tableId}: ${prevLocation.room} → ${bestSighting.room} (not visible in prev)`);
+        
+        tableLocations[tableId] = {
+          room: bestSighting.room,
+          rssi: bestSighting.rssi,
+          timestamp: now,
+          confirmed: true,
+          confidence: 1.0,
+          moving: false
+        };
       }
+    } else {
+      // Новий столик - присвоюємо до найсильнішого сигналу
+      // Але з низькою впевненістю спочатку
+      
+      const confidence = calculateConfidence(tableId, bestSighting.room, sightings);
+      
+      tableLocations[tableId] = {
+        room: bestSighting.room,
+        rssi: bestSighting.rssi,
+        timestamp: now,
+        confirmed: confidence >= CONFIDENCE_THRESHOLD,
+        confidence: confidence,
+        moving: false
+      };
+      
+      console.log(`📍 New table ${tableId} in ${bestSighting.room} (conf: ${(confidence*100).toFixed(0)}%)`);
     }
+    
+    // Додати столик до присвоєної кімнати
+    const assignedRoom = tableLocations[tableId].room;
+    const tableData = sightings.find(s => s.room === assignedRoom);
+    
+    if (!roomAssignments[assignedRoom]) {
+      roomAssignments[assignedRoom] = [];
+    }
+    
+    roomAssignments[assignedRoom].push({
+      id: tableId,
+      rssi: tableData.rssi,
+      last_seen: tableData.last_seen,
+      confidence: tableLocations[tableId].confidence,
+      moving: tableLocations[tableId].moving || false
+    });
   }
-
-  // GC tables
-  for (let id in tableLocations) {
-    if (now - tableLocations[id].timestamp > TABLE_TTL) delete tableLocations[id];
-  }
-
-  return map;
+  
+  return roomAssignments;
 }
 
-/* ================= FIREBASE ================= */
-const roomsRef = ref(db, "rooms");
+/* ================= FIREBASE LISTENER ================= */
+const roomsRef = ref(database, 'rooms');
 
-onValue(roomsRef, snap => {
+onValue(roomsRef, (snapshot) => {
   updateCount++;
-  const data = snap.val() || {};
-
-  document.getElementById("status").className = "status online";
-  document.getElementById("status").textContent = "ONLINE";
-  document.getElementById("update-count").textContent = updateCount;
-  document.getElementById("last-update").textContent = new Date().toLocaleTimeString();
-
-  if (roomsLocked) {
-    if (!rekeyBaseline) {
-      rekeyBaseline = {};
-      for (let r in data) rekeyBaseline[r] = (data[r].updated||0)*1000;
-      return;
-    }
-
-    for (let r in data) {
-      const u = (data[r].updated||0)*1000;
-      if (u > (rekeyBaseline[r]||0)+1000) lockedRooms[r] = data[r];
-    }
-
-    render(lockedRooms);
-    return;
+  
+  document.getElementById('status').className = 'status online';
+  document.getElementById('status').textContent = 'ONLINE';
+  document.getElementById('update-count').textContent = updateCount;
+  document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+  
+  const data = snapshot.val();
+  console.log('📨 Firebase update:', data);
+  
+  if (data) {
+    render(data);
+  } else {
+    showEmpty();
   }
-
-  render(data);
+}, (error) => {
+  console.error('❌ Firebase error:', error);
+  document.getElementById('status').className = 'status offline';
+  document.getElementById('status').textContent = 'ERROR';
 });
 
 /* ================= RENDER ================= */
 function render(rooms) {
-  const map = assignTablesToRooms(rooms);
   const now = Date.now();
-
-  let html = "";
-  let roomsCnt=0, tablesCnt=0, active=0, masters=0;
-
-  for (let r in rooms) {
-    const room = rooms[r];
-    const state = roomState(room);
-    if (state === "hidden" || state === "delete") continue;
-
-    roomsCnt++;
-    const tables = map[r] || [];
-    tablesCnt += tables.length;
-
-    const age = roomAge(room);
-    if (age < ROOM_VISIBLE_TTL) masters++;
-
-    let css = "";
-    if (state === "dead") css = "offline";
-
-    html += `<div class="room-section ${css}">
-      <div class="room-header">
-        <div class="room-title">${r}</div>
-        <div class="room-info">
-          <span>${Math.floor(age/60000)}m ago</span>
-        </div>
-      </div>
-      <div class="table-grid">`;
-
-    tables.forEach(t=>{
-      const st = getStatus(t.last_seen);
-      if (st==="active") active++;
-      html+=`<div class="table-item ${st}">
-        <div class="table-id">${t.id}</div>
-        <div class="table-rssi">${t.rssi}</div>
-      </div>`;
+  
+  // Присвоїти столики до кімнат
+  const roomAssignments = assignTablesToRooms(rooms);
+  
+  let totalRooms = 0;
+  let totalTables = 0;
+  let activeTables = 0;
+  let activeMasters = 0;
+  
+  let html = '';
+  
+  // Показувати ВСІ кімнати
+  for (let roomName in rooms) {
+    const roomData = rooms[roomName];
+    const tables = roomAssignments[roomName] || [];
+    
+    totalRooms++;
+    totalTables += tables.length;
+    
+    // Перевірити чи Master online
+    const lastUpdate = (roomData.updated || 0) * 1000;
+    const masterAge = now - lastUpdate;
+    const masterOnline = masterAge < MASTER_TIMEOUT;
+    
+    if (masterOnline) {
+      activeMasters++;
+    }
+    
+    // Count active tables
+    tables.forEach(table => {
+      if (table.last_seen < 30000) activeTables++;
     });
-
-    html += "</div></div>";
+    
+    // Master info
+    const masterId = roomData.master_id || 'unknown';
+    const ageSeconds = Math.floor(masterAge / 1000);
+    const ageStr = ageSeconds < 60 
+      ? `${ageSeconds}s ago` 
+      : `${Math.floor(ageSeconds / 60)}m ago`;
+    
+    // Sort tables by ID
+    const sortedTables = tables.sort((a, b) => a.id - b.id);
+    
+    html += `
+    <div class="room-section ${masterOnline ? '' : 'offline'}">
+      <div class="room-header">
+        <div class="room-header-left">
+          <div class="room-title">${roomName}</div>
+          <div class="master-status ${masterOnline ? 'online' : 'offline'}">
+            ${masterOnline ? '● ONLINE' : '○ OFFLINE'}
+          </div>
+        </div>
+        <div class="room-info">
+          <div class="room-info-item">
+            <span class="room-info-label">Master:</span>
+            <span class="room-info-value">${masterId}</span>
+          </div>
+          <div class="room-info-item">
+            <span class="room-info-label">Tables:</span>
+            <span class="room-info-value">${tables.length}</span>
+          </div>
+          <div class="room-info-item">
+            <span class="room-info-label">Updated:</span>
+            <span class="room-info-value">${ageStr}</span>
+          </div>
+        </div>
+      </div>`;
+    
+    if (tables.length === 0) {
+      html += `<div class="empty-room">No tables detected</div>`;
+    } else {
+      html += '<div class="table-grid">';
+      
+      sortedTables.forEach(table => {
+        const status = getStatus(table.last_seen);
+        const movingClass = table.moving ? 'moving' : '';
+        const confidencePercent = Math.round(table.confidence * 100);
+        
+        html += `
+        <div class="table-item ${status} ${movingClass}">
+          <div class="table-confidence">${confidencePercent}%</div>
+          <div class="table-id">${table.id}</div>
+          <div class="table-rssi">${table.rssi} dBm</div>
+          <div class="table-status">${status}</div>
+        </div>`;
+      });
+      
+      html += '</div>';
+    }
+    
+    html += '</div>';
   }
-
-  document.getElementById("content").innerHTML = html || "<div class='empty-state'>NO ROOMS</div>";
-  document.getElementById("stat-rooms").textContent = roomsCnt;
-  document.getElementById("stat-tables").textContent = tablesCnt;
-  document.getElementById("stat-active").textContent = active;
-  document.getElementById("stat-masters").textContent = masters;
+  
+  if (html === '') {
+    showEmpty();
+  } else {
+    document.getElementById('content').innerHTML = html;
+  }
+  
+  // Update stats
+  document.getElementById('stat-rooms').textContent = totalRooms;
+  document.getElementById('stat-tables').textContent = totalTables;
+  document.getElementById('stat-active').textContent = activeTables;
+  document.getElementById('stat-masters').textContent = activeMasters;
 }
 
-function getStatus(ls) {
-  if (ls < 30000) return "active";
-  if (ls < 900000) return "warning";
-  return "inactive";
+function showEmpty() {
+  document.getElementById('content').innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon">—</div>
+      <div class="empty-text">NO ACTIVE MASTERS</div>
+    </div>`;
+  
+  document.getElementById('stat-rooms').textContent = 0;
+  document.getElementById('stat-tables').textContent = 0;
+  document.getElementById('stat-active').textContent = 0;
+  document.getElementById('stat-masters').textContent = 0;
 }
+
+function getStatus(lastSeen) {
+  if (lastSeen < 30000) return 'active';
+  if (lastSeen < 900000) return 'warning';
+  return 'inactive';
+}
+
+// Debug функція
+window.debugTables = () => {
+  console.log('📊 Table Locations:', tableLocations);
+  console.log('📜 Table History:', tableHistory);
+  console.log('🕐 Master Update Times:', masterUpdateTimes);
+};
 </script>
-
-
-
 
 </body>
 </html>
