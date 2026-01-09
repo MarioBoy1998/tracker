@@ -380,10 +380,13 @@ onValue(roomsRef, snapshot => {
 
   if (roomsLocked) {
     for (let room in data) {
-      const updated = (data[room].updated || 0) * 1000;
-      if (updated > rekeyTimestamp) {
-        lockedRooms[room] = data[room];
-      }
+        const updated = (data[room].updated || 0) * 1000;
+        const dt = Math.abs(updated - rekeyTimestamp);
+
+        // accept only masters that pinged immediately after rekey
+        if (dt < 5000) {
+            lockedRooms[room] = data[room];
+        }
     }
 
     if (Object.keys(lockedRooms).length === 0) {
