@@ -97,6 +97,11 @@ body {
   overflow: hidden;
 }
 
+.room-section.offline {
+  border-color: #7f1d1d;
+  opacity: 0.7;
+}
+
 .room-header {
   background: #0d0d0d;
   border-bottom: 1px solid #1a1a1a;
@@ -104,6 +109,12 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.room-header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
 .room-title {
@@ -114,9 +125,41 @@ body {
   letter-spacing: 1px;
 }
 
-.room-count {
-  font-size: 12px;
+.master-status {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 2px;
+  font-weight: 600;
+}
+
+.master-status.online {
+  background: #15803d;
+  color: #fff;
+}
+
+.master-status.offline {
+  background: #7f1d1d;
+  color: #fff;
+}
+
+.room-info {
+  display: flex;
+  gap: 20px;
+  font-size: 11px;
   color: #666;
+}
+
+.room-info-item {
+  display: flex;
+  gap: 5px;
+}
+
+.room-info-label {
+  color: #444;
+}
+
+.room-info-value {
+  color: #888;
 }
 
 .table-grid {
@@ -124,6 +167,13 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
   gap: 15px;
+}
+
+.empty-room {
+  padding: 40px 20px;
+  text-align: center;
+  color: #444;
+  font-size: 12px;
 }
 
 .table-item {
@@ -303,24 +353,23 @@ body {
   let updateCount = 0;
 
   // ===== HYSTERESIS CONFIG =====
-  const RSSI_HYSTERESIS = 5;  // dBm різниця для зміни кімнати
-  const TIME_THRESHOLD = 5000; // 5 секунд перед переміщенням
+  const RSSI_HYSTERESIS = 5;
+  const TIME_THRESHOLD = 5000;
+  const MASTER_TIMEOUT = 60000; // 60 seconds
 
-  // Зберігаємо останнє місцезнаходження столиків
-  let tableLocations = {}; // {tableId: {room, rssi, timestamp, confirmed}}
+  let tableLocations = {};
 
-  // ===== ASSIGN TABLE TO ROOM =====
+  // ===== ASSIGN TABLES TO ROOMS =====
   function assignTablesToRooms(rooms) {
     const now = Date.now();
-    const allTables = {}; // {tableId: [{room, rssi, updated}, ...]}
+    const allTables = {};
     
-    // Збираємо всі столики з усіх кімнат
     for (let roomName in rooms) {
       const room = rooms[roomName];
-      const lastUpdate = (room.updated || 0) * 1000; // Convert to ms
+      const lastUpdate = (room.updated || 0) * 1000;
       const age = now - lastUpdate;
       
-      if (age > 60000) continue; // Skip old data (>60 sec)
+      if (age > MASTER_TIMEOUT) continue;
       
       const tables = room.tables || [];
       tables.forEach(table => {
@@ -336,36 +385,27 @@ body {
       });
     }
     
-    // Визначаємо в якій кімнаті має бути кожен столик
-    const roomAssignments = {}; // {roomName: [tables]}
+    const roomAssignments = {};
     
     for (let tableId in allTables) {
       const sightings = allTables[tableId];
       
-      // Знайти найсильніший сигнал
       let bestSighting = sightings.reduce((best, current) => {
         return current.rssi > best.rssi ? current : best;
       });
       
-      // Перевірити чи столик вже був присвоєний
       const prevLocation = tableLocations[tableId];
       
       if (prevLocation && prevLocation.confirmed) {
-        // Столик вже підтверджено в кімнаті
-        // Перевірити чи треба його переміщати
-        
         const currentInPrevRoom = sightings.find(s => s.room === prevLocation.room);
         
         if (currentInPrevRoom) {
-          // Столик все ще видно в попередній кімнаті
           const rssiDiff = bestSighting.rssi - currentInPrevRoom.rssi;
           
           if (rssiDiff > RSSI_HYSTERESIS) {
-            // Новий сигнал значно сильніший
             const timeSinceChange = now - prevLocation.timestamp;
             
             if (timeSinceChange > TIME_THRESHOLD) {
-              // Достатньо часу пройшло - переміщуємо
               console.log(`Table ${tableId}: ${prevLocation.room} → ${bestSighting.room} (${rssiDiff}dB)`);
               tableLocations[tableId] = {
                 room: bestSighting.room,
@@ -374,16 +414,13 @@ body {
                 confirmed: true
               };
             } else {
-              // Ще не час - залишаємо в попередній кімнаті
               bestSighting = currentInPrevRoom;
             }
           } else {
-            // Сигнал недостатньо сильніший - залишаємо
             bestSighting = currentInPrevRoom;
-            tableLocations[tableId].timestamp = now; // Update timestamp
+            tableLocations[tableId].timestamp = now;
           }
         } else {
-          // Столик більше не видно в попередній кімнаті - переміщуємо одразу
           console.log(`Table ${tableId}: ${prevLocation.room} → ${bestSighting.room} (not visible in prev)`);
           tableLocations[tableId] = {
             room: bestSighting.room,
@@ -393,7 +430,6 @@ body {
           };
         }
       } else {
-        // Новий столик або не підтверджений - присвоюємо
         tableLocations[tableId] = {
           room: bestSighting.room,
           rssi: bestSighting.rssi,
@@ -402,7 +438,6 @@ body {
         };
       }
       
-      // Додати столик до присвоєної кімнати
       const assignedRoom = tableLocations[tableId].room;
       const tableData = sightings.find(s => s.room === assignedRoom);
       
@@ -458,44 +493,90 @@ body {
     
     let html = '';
     
-    for (let roomName in roomAssignments) {
-      const tables = roomAssignments[roomName];
-      
-      if (tables.length === 0) continue;
+    // ✅ ПОКАЗУВАТИ ВСІ КІМНАТИ (навіть без столиків)
+    for (let roomName in rooms) {
+      const roomData = rooms[roomName];
+      const tables = roomAssignments[roomName] || [];
       
       totalRooms++;
       totalTables += tables.length;
       
-      // Count active
+      // Перевірити чи Master online
+      const lastUpdate = (roomData.updated || 0) * 1000;
+      const masterAge = now - lastUpdate;
+      const masterOnline = masterAge < MASTER_TIMEOUT;
+      
+      if (masterOnline) {
+        activeMasters++;
+      }
+      
+      // Count active tables
       tables.forEach(table => {
         if (table.last_seen < 30000) activeTables++;
       });
       
-      activeMasters++; // Assume 1 master per room with tables
+      // Master info
+      const masterId = roomData.master_id || 'unknown';
+      const lastUpdateStr = lastUpdate > 0 
+        ? new Date(lastUpdate).toLocaleTimeString() 
+        : '--:--:--';
+      
+      const ageSeconds = Math.floor(masterAge / 1000);
+      const ageStr = ageSeconds < 60 
+        ? `${ageSeconds}s ago` 
+        : `${Math.floor(ageSeconds / 60)}m ago`;
       
       // Sort tables by ID
       const sortedTables = tables.sort((a, b) => a.id - b.id);
       
       html += `
-      <div class="room-section">
+      <div class="room-section ${masterOnline ? '' : 'offline'}">
         <div class="room-header">
-          <div class="room-title">${roomName}</div>
-          <div class="room-count">${tables.length} TABLES</div>
-        </div>
-        <div class="table-grid">`;
-      
-      sortedTables.forEach(table => {
-        const status = getStatus(table.last_seen);
-        
-        html += `
-        <div class="table-item ${status}">
-          <div class="table-id">${table.id}</div>
-          <div class="table-rssi">${table.rssi} dBm</div>
-          <div class="table-status">${status}</div>
+          <div class="room-header-left">
+            <div class="room-title">${roomName}</div>
+            <div class="master-status ${masterOnline ? 'online' : 'offline'}">
+              ${masterOnline ? '● ONLINE' : '○ OFFLINE'}
+            </div>
+          </div>
+          <div class="room-info">
+            <div class="room-info-item">
+              <span class="room-info-label">Master:</span>
+              <span class="room-info-value">${masterId}</span>
+            </div>
+            <div class="room-info-item">
+              <span class="room-info-label">Tables:</span>
+              <span class="room-info-value">${tables.length}</span>
+            </div>
+            <div class="room-info-item">
+              <span class="room-info-label">Updated:</span>
+              <span class="room-info-value">${ageStr}</span>
+            </div>
+          </div>
         </div>`;
-      });
       
-      html += '</div></div>';
+      if (tables.length === 0) {
+        html += `
+        <div class="empty-room">
+          No tables detected in this room
+        </div>`;
+      } else {
+        html += '<div class="table-grid">';
+        
+        sortedTables.forEach(table => {
+          const status = getStatus(table.last_seen);
+          
+          html += `
+          <div class="table-item ${status}">
+            <div class="table-id">${table.id}</div>
+            <div class="table-rssi">${table.rssi} dBm</div>
+            <div class="table-status">${status}</div>
+          </div>`;
+        });
+        
+        html += '</div>';
+      }
+      
+      html += '</div>';
     }
     
     if (html === '') {
