@@ -331,350 +331,202 @@ body {
 
 <!-- Firebase SDK -->
 <script type="module">
-  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-  import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
-  // ===== FIREBASE CONFIG =====
-  const firebaseConfig = {
-    apiKey: "AIzaSyCWNko1tniaerF3b9Wi8HDS0muhymvIVoQ",
-    authDomain: "table-tracker-712c8.firebaseapp.com",
-    databaseURL: "https://table-tracker-712c8-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "table-tracker-712c8",
-    storageBucket: "table-tracker-712c8.firebasestorage.app",
-    messagingSenderId: "868274806628",
-    appId: "1:868274806628:web:36b9ec7ae969ab3ec2e471"
-  };
+/* ================= FIREBASE ================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyCWNko1tniaerF3b9Wi8HDS0muhymvIVoQ",
+  authDomain: "table-tracker-712c8.firebaseapp.com",
+  databaseURL: "https://table-tracker-712c8-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "table-tracker-712c8",
+  storageBucket: "table-tracker-712c8.firebasestorage.app",
+  messagingSenderId: "868274806628",
+  appId: "1:868274806628:web:36b9ec7ae969ab3ec2e471"
+};
 
-  const app = initializeApp(firebaseConfig);
-  const database = getDatabase(app);
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-  console.log('🔥 Firebase initialized');
+/* ================= CONFIG ================= */
+const RSSI_HYSTERESIS = 5;
+const TIME_THRESHOLD = 5000;
+const TABLE_TTL = 10 * 60 * 1000;
 
-  let updateCount = 0;
+const ROOM_VISIBLE_TTL = 5 * 60 * 1000;   // <5m -> show
+const ROOM_DEAD_WARN   = 15 * 60 * 1000;  // >15m -> red
+const ROOM_DELETE_TTL = 30 * 60 * 1000;  // >30m -> delete
 
-  // ===== HYSTERESIS CONFIG =====
-  const RSSI_HYSTERESIS = 5;         // dB
-  const TIME_THRESHOLD  = 5000;      // ms
-  const MASTER_TIMEOUT  = 60000;     // ms (master "offline" badge)
-  const TABLE_TTL       = 10 * 60 * 1000; // ms (remove dead tables from cache)
-  const REKEY_MAX_WAIT  = 30000;     // ms (auto-unlock after this; still safe)
+let tableLocations = {};
+let updateCount = 0;
 
-  // persistent world model: tableId -> { room, rssi, timestamp }
-  let tableLocations = {};
+/* ================= REKEY ================= */
+let roomsLocked = false;
+let rekeyBaseline = null;
+let lockedRooms = {};
 
-  // ===== REKEY MODE (hidden operator command) =====
-  let roomsLocked = false;
-  let lockedRooms = {};         // rooms allowed to show while locked
-  let rekeyBaseline = null;     // roomName -> baseline updated (ms)
-  let rekeyStartedAt = 0;
+window.rekey = () => {
+  console.log("🔐 REKEY");
+  tableLocations = {};
+  roomsLocked = true;
+  lockedRooms = {};
+  rekeyBaseline = null;
+};
 
-  // Call in DevTools console:
-  // rekey()
-  window.rekey = () => {
-    console.log("🔐 REKEY: clearing rooms + tables, waiting for masters to heartbeat again…");
-    tableLocations = {};
-    roomsLocked = true;
-    lockedRooms = {};
-    rekeyBaseline = null;       // will be captured from NEXT snapshot
-    rekeyStartedAt = Date.now();
+/* ================= HELPERS ================= */
+function roomAge(room) {
+  const u = (room.updated || 0) * 1000;
+  return Date.now() - u;
+}
 
-    // визуально покажем ожидание
-    document.getElementById('content').innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">⏳</div>
-        <div class="empty-text">REKEY MODE — WAITING FOR MASTERS</div>
-      </div>`;
-    document.getElementById('stat-rooms').textContent = 0;
-    document.getElementById('stat-tables').textContent = 0;
-    document.getElementById('stat-active').textContent = 0;
-    document.getElementById('stat-masters').textContent = 0;
-  };
+function roomState(room) {
+  const age = roomAge(room);
+  if (age < ROOM_VISIBLE_TTL) return "alive";
+  if (age < ROOM_DEAD_WARN) return "hidden";
+  if (age < ROOM_DELETE_TTL) return "dead";
+  return "delete";
+}
 
-  // ===== ASSIGN TABLES TO ROOMS (world model) =====
-  function assignTablesToRooms(rooms) {
-    const now = Date.now();
-    const allTables = {};
+/* ================= ASSIGN TABLES ================= */
+function assignTablesToRooms(rooms) {
+  const now = Date.now();
+  const all = {};
 
-    // gather sightings from ALL rooms (even if master offline; doesn't matter)
-    for (let roomName in rooms) {
-      const room = rooms[roomName];
-      const tables = room.tables || [];
-      tables.forEach(table => {
-        if (!allTables[table.id]) allTables[table.id] = [];
-        allTables[table.id].push({
-          room: roomName,
-          rssi: table.rssi,
-          last_seen: table.last_seen
-        });
-      });
-    }
-
-    const roomAssignments = {};
-
-    // pick best per table, with hysteresis based on previous room
-    for (let tableId in allTables) {
-      const sightings = allTables[tableId];
-
-      let bestSighting = sightings.reduce((best, cur) => {
-        return cur.rssi > best.rssi ? cur : best;
-      });
-
-      const prev = tableLocations[tableId];
-
-      if (prev) {
-        const inPrevRoom = sightings.find(s => s.room === prev.room);
-
-        if (inPrevRoom) {
-          const diff = bestSighting.rssi - inPrevRoom.rssi;
-
-          // if improvement is not strong enough, keep previous room
-          if (diff <= RSSI_HYSTERESIS) {
-            bestSighting = inPrevRoom;
-            tableLocations[tableId].timestamp = now;
-          } else {
-            // require time threshold before switching rooms
-            const dt = now - prev.timestamp;
-            if (dt <= TIME_THRESHOLD) {
-              bestSighting = inPrevRoom;
-            }
-          }
-        }
-      }
-
-      // update world model
-      tableLocations[tableId] = {
-        room: bestSighting.room,
-        rssi: bestSighting.rssi,
-        timestamp: now
-      };
-
-      // assign into chosen room
-      if (!roomAssignments[bestSighting.room]) roomAssignments[bestSighting.room] = [];
-      roomAssignments[bestSighting.room].push({
-        id: tableId,
-        rssi: bestSighting.rssi,
-        last_seen: bestSighting.last_seen
-      });
-    }
-
-    // Persist disappeared tables ONLY into rooms that currently exist
-    // (this prevents "phantom room resurrection")
-    for (let tableId in tableLocations) {
-      if (!allTables[tableId]) {
-        const prev = tableLocations[tableId];
-
-        // ✅ IMPORTANT: do not create a room that does not exist in `rooms`
-        if (rooms[prev.room]) {
-          if (!roomAssignments[prev.room]) roomAssignments[prev.room] = [];
-          roomAssignments[prev.room].push({
-            id: tableId,
-            rssi: prev.rssi,
-            last_seen: 9999999 // force inactive
-          });
-        }
-      }
-    }
-
-    // Garbage collect dead tables from cache
-    for (let id in tableLocations) {
-      if (now - tableLocations[id].timestamp > TABLE_TTL) {
-        delete tableLocations[id];
-      }
-    }
-
-    return roomAssignments;
+  for (let r in rooms) {
+    (rooms[r].tables || []).forEach(t => {
+      if (!all[t.id]) all[t.id] = [];
+      all[t.id].push({ room: r, rssi: t.rssi, last_seen: t.last_seen });
+    });
   }
 
-  // ===== Firebase listener =====
-  const roomsRef = ref(database, 'rooms');
+  const map = {};
 
-  onValue(roomsRef, (snapshot) => {
-    updateCount++;
+  for (let id in all) {
+    const sightings = all[id];
+    let best = sightings.reduce((a,b)=>b.rssi>a.rssi?b:a);
+    const prev = tableLocations[id];
 
-    document.getElementById('status').className = 'status online';
-    document.getElementById('status').textContent = 'ONLINE';
-    document.getElementById('update-count').textContent = updateCount;
-    document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+    if (prev) {
+      const p = sightings.find(s=>s.room===prev.room);
+      if (p && best.rssi - p.rssi < RSSI_HYSTERESIS) best = p;
+    }
 
-    const data = snapshot.val() || {};
+    tableLocations[id] = { room: best.room, rssi: best.rssi, timestamp: now };
 
-    // ===== REKEY MODE =====
-    if (roomsLocked) {
-      const now = Date.now();
+    if (!map[best.room]) map[best.room] = [];
+    map[best.room].push({ id, rssi: best.rssi, last_seen: best.last_seen });
+  }
 
-      // 1) capture baseline from first snapshot after rekey()
-      if (!rekeyBaseline) {
-        rekeyBaseline = {};
-        for (let roomName in data) {
-          rekeyBaseline[roomName] = (data[roomName].updated || 0) * 1000;
-        }
-        // don't render yet — we wait for any room to CHANGE its updated
-        return;
+  // persist only into ALIVE or DEAD rooms (not hidden, not deleted)
+  for (let id in tableLocations) {
+    if (!all[id]) {
+      const prev = tableLocations[id];
+      const room = rooms[prev.room];
+      if (!room) continue;
+
+      const state = roomState(room);
+      if (state === "alive" || state === "dead") {
+        if (!map[prev.room]) map[prev.room] = [];
+        map[prev.room].push({ id, rssi: prev.rssi, last_seen: 9999999 });
       }
+    }
+  }
 
-      // 2) accept rooms only when their `updated` CHANGED vs baseline
-      //    (this removes "phantom always-visible room 1")
-      for (let roomName in data) {
-        const updatedMs = (data[roomName].updated || 0) * 1000;
-        const baseMs = rekeyBaseline[roomName] || 0;
+  // GC tables
+  for (let id in tableLocations) {
+    if (now - tableLocations[id].timestamp > TABLE_TTL) delete tableLocations[id];
+  }
 
-        // changed by at least 1s => new heartbeat after rekey baseline
-        if (updatedMs > baseMs + 1000) {
-          lockedRooms[roomName] = data[roomName];
-        }
-      }
+  return map;
+}
 
-      const roomsCount = Object.keys(lockedRooms).length;
+/* ================= FIREBASE ================= */
+const roomsRef = ref(db, "rooms");
 
-      if (roomsCount === 0) {
-        document.getElementById('content').innerHTML = `
-          <div class="empty-state">
-            <div class="empty-icon">⏳</div>
-            <div class="empty-text">REKEY MODE — WAITING FOR MASTERS</div>
-          </div>`;
-        document.getElementById('stat-rooms').textContent = 0;
-        document.getElementById('stat-tables').textContent = 0;
-        document.getElementById('stat-active').textContent = 0;
-        document.getElementById('stat-masters').textContent = 0;
-        return;
-      }
+onValue(roomsRef, snap => {
+  updateCount++;
+  const data = snap.val() || {};
 
-      // render only rooms that have heartbeated after rekey baseline
-      render(lockedRooms);
+  document.getElementById("status").className = "status online";
+  document.getElementById("status").textContent = "ONLINE";
+  document.getElementById("update-count").textContent = updateCount;
+  document.getElementById("last-update").textContent = new Date().toLocaleTimeString();
 
-      // optional auto-unlock after some time (still safe even if left locked)
-      if (now - rekeyStartedAt > REKEY_MAX_WAIT) {
-        roomsLocked = false;
-        console.log("🔓 REKEY: auto-unlock (normal mode resumed)");
-      }
-
+  if (roomsLocked) {
+    if (!rekeyBaseline) {
+      rekeyBaseline = {};
+      for (let r in data) rekeyBaseline[r] = (data[r].updated||0)*1000;
       return;
     }
 
-    // ===== NORMAL MODE =====
-    if (Object.keys(data).length) render(data);
-    else showEmpty();
-
-  }, (error) => {
-    console.error('❌ Firebase error:', error);
-    document.getElementById('status').className = 'status offline';
-    document.getElementById('status').textContent = 'ERROR';
-  });
-
-  // ===== RENDER UI =====
-  function render(rooms) {
-    const now = Date.now();
-    const roomAssignments = assignTablesToRooms(rooms);
-
-    let totalRooms = 0;
-    let totalTables = 0;
-    let activeTables = 0;
-    let activeMasters = 0;
-
-    let html = '';
-
-    // show all rooms (even without tables)
-    for (let roomName in rooms) {
-      const roomData = rooms[roomName];
-      const tables = roomAssignments[roomName] || [];
-
-      totalRooms++;
-      totalTables += tables.length;
-
-      // master online badge
-      const lastUpdate = (roomData.updated || 0) * 1000;
-      const masterAge = now - lastUpdate;
-      const masterOnline = masterAge < MASTER_TIMEOUT;
-      if (masterOnline) activeMasters++;
-
-      // count active tables
-      tables.forEach(table => {
-        if (table.last_seen < 30000) activeTables++;
-      });
-
-      const masterId = roomData.master_id || 'unknown';
-
-      const ageSeconds = Math.floor(masterAge / 1000);
-      const ageStr = lastUpdate > 0
-        ? (ageSeconds < 60 ? `${ageSeconds}s ago` : `${Math.floor(ageSeconds / 60)}m ago`)
-        : '--';
-
-      const sortedTables = tables.sort((a, b) => Number(a.id) - Number(b.id));
-
-      html += `
-      <div class="room-section ${masterOnline ? '' : 'offline'}">
-        <div class="room-header">
-          <div class="room-header-left">
-            <div class="room-title">${roomName}</div>
-            <div class="master-status ${masterOnline ? 'online' : 'offline'}">
-              ${masterOnline ? '● ONLINE' : '○ OFFLINE'}
-            </div>
-          </div>
-          <div class="room-info">
-            <div class="room-info-item">
-              <span class="room-info-label">Master:</span>
-              <span class="room-info-value">${masterId}</span>
-            </div>
-            <div class="room-info-item">
-              <span class="room-info-label">Tables:</span>
-              <span class="room-info-value">${tables.length}</span>
-            </div>
-            <div class="room-info-item">
-              <span class="room-info-label">Updated:</span>
-              <span class="room-info-value">${ageStr}</span>
-            </div>
-          </div>
-        </div>`;
-
-      if (tables.length === 0) {
-        html += `<div class="empty-room">No tables detected in this room</div>`;
-      } else {
-        html += `<div class="table-grid">`;
-        sortedTables.forEach(table => {
-          const status = getStatus(table.last_seen);
-          html += `
-            <div class="table-item ${status}">
-              <div class="table-id">${table.id}</div>
-              <div class="table-rssi">${table.rssi} dBm</div>
-              <div class="table-status">${status}</div>
-            </div>`;
-        });
-        html += `</div>`;
-      }
-
-      html += `</div>`;
+    for (let r in data) {
+      const u = (data[r].updated||0)*1000;
+      if (u > (rekeyBaseline[r]||0)+1000) lockedRooms[r] = data[r];
     }
 
-    if (html === '') {
-      showEmpty();
-    } else {
-      document.getElementById('content').innerHTML = html;
-    }
-
-    document.getElementById('stat-rooms').textContent = totalRooms;
-    document.getElementById('stat-tables').textContent = totalTables;
-    document.getElementById('stat-active').textContent = activeTables;
-    document.getElementById('stat-masters').textContent = activeMasters;
+    render(lockedRooms);
+    return;
   }
 
-  function showEmpty() {
-    document.getElementById('content').innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">—</div>
-        <div class="empty-text">NO ACTIVE MASTERS</div>
+  render(data);
+});
+
+/* ================= RENDER ================= */
+function render(rooms) {
+  const map = assignTablesToRooms(rooms);
+  const now = Date.now();
+
+  let html = "";
+  let roomsCnt=0, tablesCnt=0, active=0, masters=0;
+
+  for (let r in rooms) {
+    const room = rooms[r];
+    const state = roomState(room);
+    if (state === "hidden" || state === "delete") continue;
+
+    roomsCnt++;
+    const tables = map[r] || [];
+    tablesCnt += tables.length;
+
+    const age = roomAge(room);
+    if (age < ROOM_VISIBLE_TTL) masters++;
+
+    let css = "";
+    if (state === "dead") css = "offline";
+
+    html += `<div class="room-section ${css}">
+      <div class="room-header">
+        <div class="room-title">${r}</div>
+        <div class="room-info">
+          <span>${Math.floor(age/60000)}m ago</span>
+        </div>
+      </div>
+      <div class="table-grid">`;
+
+    tables.forEach(t=>{
+      const st = getStatus(t.last_seen);
+      if (st==="active") active++;
+      html+=`<div class="table-item ${st}">
+        <div class="table-id">${t.id}</div>
+        <div class="table-rssi">${t.rssi}</div>
       </div>`;
+    });
 
-    document.getElementById('stat-rooms').textContent = 0;
-    document.getElementById('stat-tables').textContent = 0;
-    document.getElementById('stat-active').textContent = 0;
-    document.getElementById('stat-masters').textContent = 0;
+    html += "</div></div>";
   }
 
-  function getStatus(lastSeen) {
-    if (lastSeen < 30000) return 'active';
-    if (lastSeen < 900000) return 'warning';
-    return 'inactive';
-  }
+  document.getElementById("content").innerHTML = html || "<div class='empty-state'>NO ROOMS</div>";
+  document.getElementById("stat-rooms").textContent = roomsCnt;
+  document.getElementById("stat-tables").textContent = tablesCnt;
+  document.getElementById("stat-active").textContent = active;
+  document.getElementById("stat-masters").textContent = masters;
+}
+
+function getStatus(ls) {
+  if (ls < 30000) return "active";
+  if (ls < 900000) return "warning";
+  return "inactive";
+}
 </script>
 
 
