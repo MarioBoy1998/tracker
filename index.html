@@ -445,12 +445,18 @@ const database = getDatabase(app);
 console.log('🔥 Firebase initialized');
 
 /* ================= CONFIG ================= */
-const RSSI_HYSTERESIS = 8;           // 8 dBm різниця для переміщення
-const TIME_THRESHOLD = 15000;         // 15 секунд перед переміщенням
-const MASTER_SYNC_WINDOW = 10000;     // 10 секунд - вікно синхронізації Masters
-const MASTER_TIMEOUT = 60000;         // 60 секунд - Master offline
-const ROOM_DELETE_TIMEOUT = 30 * 60 * 1000; // 30 хвилин - видалити кімнату
-const CONFIDENCE_THRESHOLD = 0.7;     // 70% впевненості для переміщення
+const RSSI_HYSTERESIS = 8;                     // 8 dBm різниця для переміщення
+const TIME_THRESHOLD = 15000;                   // 15 секунд перед переміщенням
+const MASTER_SYNC_WINDOW = 10000;               // 10 секунд - вікно синхронізації Masters
+const CONFIDENCE_THRESHOLD = 0.7;               // 70% впевненості для переміщення
+
+// ✅ ТАЙМАУТИ ДЛЯ КІМНАТ
+const MASTER_OFFLINE_TIMEOUT = 5 * 60 * 1000;   // 5 хвилин - Master offline
+const ROOM_DELETE_TIMEOUT = 30 * 60 * 1000;     // 30 хвилин - видалити кімнату
+
+// ✅ ТАЙМАУТИ ДЛЯ СТОЛИКІВ
+const TABLE_WARNING_TIMEOUT = 5 * 60 * 1000;    // 5 хвилин - червоний
+const TABLE_DELETE_TIMEOUT = 30 * 60 * 1000;    // 30 хвилин - видалити
 
 let updateCount = 0;
 let tableLocations = {};
@@ -500,7 +506,7 @@ function areMastersSynced(rooms) {
   const now = Date.now();
   const activeMasters = Object.keys(rooms).filter(roomName => {
     const lastUpdate = (rooms[roomName].updated || 0) * 1000;
-    return (now - lastUpdate) < MASTER_TIMEOUT;
+    return (now - lastUpdate) < MASTER_OFFLINE_TIMEOUT;
   });
   
   if (activeMasters.length <= 1) return true;
@@ -525,10 +531,11 @@ function assignTablesToRooms(rooms) {
     const lastUpdate = (room.updated || 0) * 1000;
     const age = now - lastUpdate;
     
-    // ✅ ПРОПУСТИТИ кімнати старіші за 30 хвилин
+    // ✅ Пропустити кімнати старіші за 30 хвилин
     if (age > ROOM_DELETE_TIMEOUT) continue;
     
-    if (age > MASTER_TIMEOUT) continue;
+    // ✅ Пропустити кімнати старіші за 5 хвилин (offline)
+    if (age > MASTER_OFFLINE_TIMEOUT) continue;
     
     masterUpdateTimes[roomName] = lastUpdate;
     
@@ -648,6 +655,16 @@ function assignTablesToRooms(rooms) {
     });
   }
   
+  // ✅ ВИДАЛИТИ столики старіші за 30 хвилин
+  for (let tableId in tableLocations) {
+    const tableAge = now - tableLocations[tableId].timestamp;
+    if (tableAge > TABLE_DELETE_TIMEOUT) {
+      console.log(`🗑️ Deleting old table: ${tableId} (age: ${Math.floor(tableAge/60000)}m)`);
+      delete tableLocations[tableId];
+      delete tableHistory[tableId];
+    }
+  }
+  
   return roomAssignments;
 }
 
@@ -695,7 +712,7 @@ function render(rooms) {
     const lastUpdate = (roomData.updated || 0) * 1000;
     const masterAge = now - lastUpdate;
     
-    // ✅ ПРОПУСТИТИ кімнати старіші за 30 хвилин
+    // ✅ ВИДАЛИТИ кімнати старіші за 30 хвилин
     if (masterAge > ROOM_DELETE_TIMEOUT) {
       console.log(`🗑️ Skipping old room: ${roomName} (age: ${Math.floor(masterAge/60000)}m)`);
       continue;
@@ -706,21 +723,23 @@ function render(rooms) {
     totalRooms++;
     totalTables += tables.length;
     
-    const masterOnline = masterAge < MASTER_TIMEOUT;
+    // ✅ Master offline якщо > 5 хвилин
+    const masterOnline = masterAge < MASTER_OFFLINE_TIMEOUT;
     
     if (masterOnline) {
       activeMasters++;
     }
     
+    // ✅ Підрахувати активні столики (< 5 хвилин)
     tables.forEach(table => {
-      if (table.last_seen < 30000) activeTables++;
+      if (table.last_seen < TABLE_WARNING_TIMEOUT) activeTables++;
     });
     
     const masterId = roomData.master_id || 'unknown';
     const ageSeconds = Math.floor(masterAge / 1000);
     const ageStr = ageSeconds < 60 
-      ? `${ageSeconds}s ago` 
-      : `${Math.floor(ageSeconds / 60)}m ago`;
+      ? `${ageSeconds}s` 
+      : `${Math.floor(ageSeconds / 60)}m`;
     
     const sortedTables = tables.sort((a, b) => a.id - b.id);
     
@@ -744,7 +763,7 @@ function render(rooms) {
           </div>
           <div class="room-info-item">
             <span class="room-info-label">Updated:</span>
-            <span class="room-info-value">${ageStr}</span>
+            <span class="room-info-value">${ageStr} ago</span>
           </div>
         </div>
       </div>`;
@@ -755,7 +774,7 @@ function render(rooms) {
       html += '<div class="table-grid">';
       
       sortedTables.forEach(table => {
-        const status = getStatus(table.last_seen);
+        const status = getTableStatus(table.last_seen);
         const movingClass = table.moving ? 'moving' : '';
         const confidencePercent = Math.round(table.confidence * 100);
         
@@ -799,10 +818,16 @@ function showEmpty() {
   document.getElementById('stat-masters').textContent = 0;
 }
 
-function getStatus(lastSeen) {
-  if (lastSeen < 30000) return 'active';
-  if (lastSeen < 900000) return 'warning';
-  return 'inactive';
+/* ================= СТАТУСИ СТОЛИКІВ ================= */
+function getTableStatus(lastSeen) {
+  // ✅ < 5 хвилин - зелений (active)
+  if (lastSeen < TABLE_WARNING_TIMEOUT) return 'active';
+  
+  // ✅ 5-30 хвилин - червоний (inactive)
+  if (lastSeen < TABLE_DELETE_TIMEOUT) return 'inactive';
+  
+  // ✅ > 30 хвилин - видалити (не показувати)
+  return 'deleted';
 }
 
 window.debugTables = () => {
