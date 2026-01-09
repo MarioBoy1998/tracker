@@ -433,9 +433,15 @@ function assignTablesToRooms(rooms) {
   for (let id in tableLocations) {
     if (!all[id]) {
       const prev = tableLocations[id];
-      if (!map[prev.room]) map[prev.room] = [];
-      map[prev.room].push({ id, rssi: prev.rssi, last_seen: 9999999 });
-    }
+      // only persist if room still exists
+if (rooms[prev.room]) {
+    if (!map[prev.room]) map[prev.room] = [];
+    map[prev.room].push({
+        id,
+        rssi: prev.rssi,
+        last_seen: 9999999
+    });
+}
     if (now - tableLocations[id].timestamp > TABLE_TTL) delete tableLocations[id];
   }
 
