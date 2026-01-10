@@ -18,7 +18,6 @@ body {
   min-height: 100vh;
 }
 
-/* Header */
 .header {
   background: #111;
   border-bottom: 1px solid #222;
@@ -61,7 +60,6 @@ body {
   color: #fff;
 }
 
-/* Stats */
 .stats {
   background: #111;
   border-bottom: 1px solid #222;
@@ -90,7 +88,6 @@ body {
   letter-spacing: 1px;
 }
 
-/* Rooms Container */
 .rooms-container {
   padding: 20px;
   display: flex;
@@ -98,7 +95,6 @@ body {
   gap: 20px;
 }
 
-/* Room Card */
 .room-card {
   background: #111;
   border: 1px solid #222;
@@ -146,14 +142,12 @@ body {
   padding: 20px;
 }
 
-/* Tables Grid */
 .tables-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 12px;
 }
 
-/* Table Item */
 .table-item {
   background: #0a0a0a;
   border: 2px solid #222;
@@ -228,7 +222,6 @@ body {
   color: #555;
 }
 
-/* Empty State */
 .empty-state {
   text-align: center;
   padding: 40px;
@@ -245,7 +238,6 @@ body {
   font-size: 14px;
 }
 
-/* Loading */
 .loading {
   text-align: center;
   padding: 60px 20px;
@@ -267,7 +259,19 @@ body {
   100% { transform: rotate(360deg); }
 }
 
-/* Responsive */
+#debug {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  background: #111;
+  border: 1px solid #333;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  max-width: 300px;
+  color: #888;
+}
+
 @media (max-width: 768px) {
   .header h1 {
     font-size: 20px;
@@ -284,6 +288,11 @@ body {
   .tables-grid {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 10px;
+  }
+  
+  #debug {
+    font-size: 9px;
+    max-width: 200px;
   }
 }
 </style>
@@ -321,6 +330,12 @@ body {
   </div>
 </div>
 
+<div id="debug">
+  <div>Masters: <span id="debug-masters">0</span></div>
+  <div>Tables: <span id="debug-tables">0</span></div>
+  <div>Last update: <span id="debug-time">-</span></div>
+</div>
+
 <script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
 <script>
 // ================= CONFIG =================
@@ -337,13 +352,12 @@ const CLEANUP_INTERVAL = 3600000;
 const SIGNAL_FRESHNESS_THRESHOLD = 30000;
 const RSSI_DIFFERENCE_THRESHOLD = 10;
 const MIN_RSSI_FOR_ROOM = -90;
-const CONFIDENCE_THRESHOLD = 0.8;
-const HISTORY_LENGTH = 2;
 
 // ================= DATA =================
 let masters = {};
 let tables = {};
 let tableHistory = {};
+let lastRenderTime = 0;
 
 // ================= MQTT =================
 const client = mqtt.connect(MQTT_HOST, {
@@ -355,35 +369,47 @@ const client = mqtt.connect(MQTT_HOST, {
 });
 
 client.on('connect', () => {
-  console.log('✅ Connected');
+  console.log('✅ MQTT Connected');
   updateStatus('connected', 'Connected');
   
   client.subscribe('tracker/raw/#', (err) => {
-    if (!err) console.log('📡 Subscribed');
+    if (!err) {
+      console.log('📡 Subscribed to tracker/raw/#');
+    } else {
+      console.error('❌ Subscribe failed:', err);
+    }
   });
 });
 
 client.on('message', (topic, message) => {
+  console.log(`📨 Message from ${topic}`);
+  
   try {
     if (topic.startsWith('tracker/raw/')) {
       const masterId = topic.split('/')[2];
       const data = JSON.parse(message.toString());
+      
+      console.log(`  Master ${masterId}: room=${data.room}, tables=${data.tables?.length || 0}`);
+      
       handleMasterData(masterId, data);
     }
   } catch (e) {
-    console.error('Parse error:', e);
+    console.error('❌ Parse error:', e);
   }
 });
 
 client.on('disconnect', () => {
+  console.log('⚠️ Disconnected');
   updateStatus('disconnected', 'Disconnected');
 });
 
 client.on('error', (error) => {
+  console.error('❌ MQTT Error:', error);
   updateStatus('disconnected', 'Error');
 });
 
 client.on('reconnect', () => {
+  console.log('🔄 Reconnecting...');
   updateStatus('connecting', 'Reconnecting...');
 });
 
@@ -399,7 +425,7 @@ function updateTableHistory(tableId, roomName, rssi, timestamp) {
     timestamp: timestamp
   });
 
-  if (tableHistory[tableId].length > HISTORY_LENGTH) {
+  if (tableHistory[tableId].length > 2) {
     tableHistory[tableId].shift();
   }
 }
@@ -409,7 +435,7 @@ function calculateConfidence(tableId, roomName) {
     return 0.5;
   }
 
-  const recentHistory = tableHistory[tableId].slice(-HISTORY_LENGTH);
+  const recentHistory = tableHistory[tableId].slice(-2);
   const roomCount = recentHistory.filter(h => h.room === roomName).length;
 
   return roomCount / recentHistory.length;
@@ -426,7 +452,7 @@ function handleMasterData(masterId, data) {
     active: true
   };
   
-  console.log(`📨 Master ${masterId} (${data.room}): ${data.tables.length} tables`);
+  console.log(`  ✅ Master ${masterId} saved: room=${data.room}`);
   
   (data.tables || []).forEach(table => {
     const tableId = table.id;
@@ -435,7 +461,7 @@ function handleMasterData(masterId, data) {
     
     if (!tables[tableId]) {
       tables[tableId] = { signals: [] };
-      console.log(`  [+] TX_${tableId}`);
+      console.log(`    [+] New table: TX_${tableId}`);
     }
     
     const existingIndex = tables[tableId].signals.findIndex(
@@ -458,6 +484,7 @@ function handleMasterData(masterId, data) {
     updateTableHistory(tableId, data.room, rssi, now);
   });
   
+  updateDebug();
   processAndRender();
 }
 
@@ -465,15 +492,22 @@ function handleMasterData(masterId, data) {
 function processAndRender() {
   const now = Date.now();
   
+  console.log('\n🔄 Processing...');
+  
   // Timeout Masters
+  let activeMasterCount = 0;
   for (let masterId in masters) {
     if (now - masters[masterId].lastSeen > MASTER_TIMEOUT) {
       if (masters[masterId].active) {
         console.log(`⚠️ Master ${masterId} timeout`);
         masters[masterId].active = false;
       }
+    } else {
+      activeMasterCount++;
     }
   }
+  
+  console.log(`  Masters: ${Object.keys(masters).length} total, ${activeMasterCount} active`);
   
   // Cleanup old signals
   for (let tableId in tables) {
@@ -482,11 +516,13 @@ function processAndRender() {
     });
     
     if (tables[tableId].signals.length === 0) {
-      console.log(`  [-] TX_${tableId}`);
+      console.log(`  [-] Remove table: TX_${tableId}`);
       delete tables[tableId];
       delete tableHistory[tableId];
     }
   }
+  
+  console.log(`  Tables: ${Object.keys(tables).length} total`);
   
   // Build rooms
   let rooms = {};
@@ -501,10 +537,11 @@ function processAndRender() {
         master_id: masters[masterId].master_id,
         tables: []
       };
+      console.log(`  + Room: ${room}`);
     }
   }
   
-  // Process tables
+  // Process tables with smart logic
   let activeCount = 0;
   let warningCount = 0;
   let inactiveCount = 0;
@@ -514,17 +551,20 @@ function processAndRender() {
     const signals = tables[tableId].signals;
     if (signals.length === 0) continue;
     
+    // Find newest signal (current room)
     const lastSignal = signals.reduce((newest, current) => {
       return current.timestamp > newest.timestamp ? current : newest;
     });
     const currentRoom = lastSignal.room;
     
+    // Group signals by room
     const signalsByRoom = {};
     signals.forEach(signal => {
       if (!signalsByRoom[signal.room]) signalsByRoom[signal.room] = [];
       signalsByRoom[signal.room].push(signal);
     });
     
+    // Get freshest signal from each room
     const freshestByRoom = {};
     for (let room in signalsByRoom) {
       freshestByRoom[room] = signalsByRoom[room].reduce((newest, current) => {
@@ -532,6 +572,7 @@ function processAndRender() {
       });
     }
     
+    // Current room signal
     const currentRoomSignal = freshestByRoom[currentRoom];
     const currentRoomAge = currentRoomSignal ? (now - currentRoomSignal.timestamp) : Infinity;
     const currentRoomFresh = currentRoomAge < SIGNAL_FRESHNESS_THRESHOLD;
@@ -539,6 +580,7 @@ function processAndRender() {
     let finalRoom = currentRoom;
     let finalSignal = currentRoomSignal || lastSignal;
     
+    // Smart movement logic
     if (currentRoomFresh && currentRoomSignal.rssi >= MIN_RSSI_FOR_ROOM) {
       let bestRoom = currentRoom;
       let bestSignal = currentRoomSignal;
@@ -554,6 +596,7 @@ function processAndRender() {
           if (signal.rssi - bestSignal.rssi > RSSI_DIFFERENCE_THRESHOLD) {
             bestRoom = room;
             bestSignal = signal;
+            console.log(`    TX_${tableId}: ${currentRoom} → ${bestRoom} (${bestSignal.rssi} vs ${currentRoomSignal.rssi})`);
           }
         }
       }
@@ -581,9 +624,10 @@ function processAndRender() {
       if (bestSignal) {
         finalRoom = bestRoom;
         finalSignal = bestSignal;
+        console.log(`    TX_${tableId}: ${currentRoom} → ${bestRoom} (weak current: ${currentRoomSignal.rssi})`);
       }
-      
     } else {
+      // Emergency move if very fresh and strong
       let emergencyRoom = null;
       let emergencySignal = null;
       
@@ -603,6 +647,7 @@ function processAndRender() {
       if (emergencySignal) {
         finalRoom = emergencyRoom;
         finalSignal = emergencySignal;
+        console.log(`    TX_${tableId}: ${currentRoom} → ${emergencyRoom} (emergency)`);
       }
     }
     
@@ -636,15 +681,18 @@ function processAndRender() {
   
   const roomCount = Object.keys(rooms).length;
   const tableCount = Object.keys(tables).length;
-  const masterCount = Object.keys(masters).filter(id => masters[id].active).length;
+  const masterCount = activeMasterCount;
   
-  console.log(`📊 ${roomCount} rooms, ${tableCount} tables (✓${activeCount} ⚠${warningCount} ✗${inactiveCount} ⏸${staleCount})`);
+  console.log(`📊 Result: ${roomCount} rooms, ${tableCount} tables (✓${activeCount} ⚠${warningCount} ✗${inactiveCount} ⏸${staleCount})`);
   
+  lastRenderTime = now;
   render(rooms, roomCount, tableCount, activeCount, masterCount);
 }
 
 // ================= RENDER =================
 function render(rooms, roomCount, tableCount, activeCount, masterCount) {
+  console.log(`🎨 Rendering ${roomCount} rooms...`);
+  
   if (!rooms || Object.keys(rooms).length === 0) {
     document.getElementById('rooms').innerHTML = `
       <div class="loading">
@@ -658,10 +706,14 @@ function render(rooms, roomCount, tableCount, activeCount, masterCount) {
   let html = '';
   let roomNames = Object.keys(rooms).sort();
   
+  console.log(`  Rooms to render: ${roomNames.join(', ')}`);
+  
   roomNames.forEach(roomName => {
     let room = rooms[roomName];
     let tables = room.tables || [];
     let isActive = room.active !== false;
+    
+    console.log(`  - ${roomName}: ${tables.length} tables, ${isActive ? 'online' : 'offline'}`);
     
     tables.sort((a, b) => parseInt(a.id) - parseInt(b.id));
     
@@ -709,6 +761,8 @@ function render(rooms, roomCount, tableCount, activeCount, masterCount) {
   
   document.getElementById('rooms').innerHTML = html;
   updateStats(roomCount, tableCount, activeCount, masterCount);
+  
+  console.log('✅ Render complete\n');
 }
 
 // ================= HELPERS =================
@@ -725,8 +779,18 @@ function updateStats(rooms, tables, active, masters) {
   document.getElementById('stat-masters').textContent = masters;
 }
 
+function updateDebug() {
+  const activeMasters = Object.values(masters).filter(m => m.active).length;
+  document.getElementById('debug-masters').textContent = activeMasters;
+  document.getElementById('debug-tables').textContent = Object.keys(tables).length;
+  
+  const now = new Date();
+  document.getElementById('debug-time').textContent = now.toLocaleTimeString();
+}
+
 // Auto cleanup
 setInterval(() => {
+  console.log('⏰ Auto cleanup...');
   const now = Date.now();
   for (let tableId in tables) {
     tables[tableId].signals = tables[tableId].signals.filter(signal => {
@@ -737,10 +801,12 @@ setInterval(() => {
       delete tableHistory[tableId];
     }
   }
+  updateDebug();
   processAndRender();
 }, 60000);
 
 // Init
+console.log('🚀 Starting Table Tracker...');
 render({}, 0, 0, 0, 0);
 </script>
 </body>
