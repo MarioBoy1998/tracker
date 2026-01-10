@@ -1,428 +1,80 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html>
 <head>
 <meta charset="utf-8">
+<title>Table Tracker</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Table Tracker Dashboard</title>
 <style>
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+html,body{margin:0;height:100%;background:#0e0e0e;color:#fff;font-family:Arial;overflow:hidden}
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  min-height: 100vh;
-  overflow-x: hidden;
-}
+#status{position:fixed;top:10px;right:10px;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:bold;z-index:1000}
+#status.connected{background:#22c55e;color:#000}
+#status.disconnected{background:#ef4444;color:#fff}
+#status.connecting{background:#f59e0b;color:#000}
 
-/* Header */
-.header {
-  background: rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(10px);
-  padding: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 15px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-}
+#header{text-align:center;padding:20px;background:#1a1a1a;border-bottom:2px solid #333}
+#header h1{margin:0;font-size:32px;font-weight:700;color:#ef4444}
 
-.header h1 {
-  font-size: 28px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+#stats{display:flex;justify-content:center;gap:40px;padding:15px;background:#1a1a1a;border-bottom:1px solid #333}
+.stat{text-align:center}
+.stat-value{font-size:28px;font-weight:700;color:#ef4444}
+.stat-label{font-size:11px;opacity:0.7;margin-top:4px;text-transform:uppercase;letter-spacing:1px}
 
-.status-badge {
-  padding: 8px 20px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.3s;
-}
+#rooms{display:flex;flex-direction:column;height:calc(100vh - 160px);overflow-y:auto}
+.room{flex:1;border-bottom:2px solid #333;padding:20px;display:flex;flex-direction:column;min-height:0}
+.room:last-child{border-bottom:0}
+.room.offline{background:#1a0000}
 
-.status-badge::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  animation: pulse 2s infinite;
-}
+.room-header{text-align:center;margin-bottom:16px}
+.room-header h2{margin:0;font-size:28px;font-weight:700;color:#ef4444}
+.room-status{font-size:14px;opacity:0.7;margin-top:4px}
+.room-status.offline{color:#ef4444}
+.room-status.online{color:#22c55e}
 
-.status-badge.connected {
-  background: #22c55e;
-  color: #000;
-}
+.tables{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;align-items:center;align-content:center;overflow-y:auto;flex:1}
 
-.status-badge.connected::before {
-  background: #000;
-}
+.table{border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;font-weight:700;position:relative;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all 0.3s ease;cursor:pointer}
 
-.status-badge.disconnected {
-  background: #ef4444;
-  color: #fff;
-}
+.table.active{background:#22c55e}
+.table.warning{background:#f59e0b;animation:pulse-warning 2s infinite}
+.table.inactive{background:#ef4444;animation:pulse-inactive 2s infinite}
+.table.stale{background:#666;opacity:0.6}
 
-.status-badge.disconnected::before {
-  background: #fff;
-}
+.table:hover{transform:scale(1.1)}
 
-.status-badge.connecting {
-  background: #f59e0b;
-  color: #000;
-}
+.table .id{font-size:1em}
+.table .rssi{font-size:0.5em;font-weight:400;margin-top:0.2em;opacity:0.8}
+.table .time{font-size:0.4em;font-weight:400;margin-top:0.1em;opacity:0.7}
 
-.status-badge.connecting::before {
-  background: #000;
-}
+.empty{opacity:.4;text-align:center;padding:40px;width:100%;font-size:20px}
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
+@keyframes pulse-warning{0%,100%{opacity:1}50%{opacity:0.7}}
+@keyframes pulse-inactive{0%,100%{opacity:1}50%{opacity:0.6}}
 
-/* Stats */
-.stats {
-  background: rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(10px);
-  padding: 15px 20px;
-  display: flex;
-  justify-content: center;
-  gap: 40px;
-  flex-wrap: wrap;
-}
-
-.stat {
-  text-align: center;
-}
-
-.stat-value {
-  font-size: 32px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.stat-label {
-  font-size: 12px;
-  opacity: 0.8;
-  margin-top: 5px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-/* Legend */
-.legend {
-  background: rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(10px);
-  padding: 12px 20px;
-  text-align: center;
-  font-size: 13px;
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 15px;
-}
-
-.legend-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.legend-dot.active { background: #22c55e; }
-.legend-dot.warning { background: #f59e0b; }
-.legend-dot.inactive { background: #ef4444; }
-.legend-dot.stale { background: #6b7280; }
-
-/* Rooms */
-.rooms-container {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.room-card {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s;
-}
-
-.room-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
-}
-
-.room-card.offline {
-  opacity: 0.6;
-  background: rgba(239, 68, 68, 0.1);
-}
-
-.room-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.room-title {
-  color: #fff;
-  font-size: 24px;
-  font-weight: 700;
-}
-
-.room-status {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.room-status::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #fff;
-}
-
-.room-status.offline {
-  background: rgba(239, 68, 68, 0.3);
-}
-
-.room-status.offline::before {
-  background: #ef4444;
-}
-
-.room-body {
-  padding: 30px;
-  min-height: 200px;
-}
-
-.tables-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  gap: 20px;
-  justify-items: center;
-}
-
-.table {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 700;
-  transition: all 0.3s;
-  cursor: pointer;
-  position: relative;
-}
-
-.table:hover {
-  transform: scale(1.1);
-}
-
-/* Статуси столиків */
-.table.active {
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
-}
-
-.table.active:hover {
-  box-shadow: 0 8px 25px rgba(34, 197, 94, 0.5);
-}
-
-.table.warning {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
-  animation: pulse-warning 2s infinite;
-}
-
-.table.warning:hover {
-  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.5);
-}
-
-.table.inactive {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
-  animation: pulse-danger 3s infinite;
-}
-
-.table.inactive:hover {
-  box-shadow: 0 8px 25px rgba(239, 68, 68, 0.5);
-}
-
-.table.stale {
-  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
-  box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3);
-  opacity: 0.7;
-}
-
-.table.stale:hover {
-  box-shadow: 0 8px 25px rgba(107, 114, 128, 0.5);
-}
-
-@keyframes pulse-warning {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-@keyframes pulse-danger {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-.table-id {
-  font-size: 28px;
-  font-weight: 700;
-}
-
-.table-rssi {
-  font-size: 11px;
-  opacity: 0.9;
-  margin-top: 4px;
-}
-
-.table-time {
-  font-size: 9px;
-  opacity: 0.8;
-  margin-top: 2px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: #94a3b8;
-}
-
-.empty-state-icon {
-  font-size: 64px;
-  opacity: 0.3;
-  margin-bottom: 15px;
-}
-
-.empty-state-text {
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.loading {
-  text-align: center;
-  padding: 100px 20px;
-  color: #fff;
-  font-size: 20px;
-}
-
-.spinner {
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  border-top: 4px solid #fff;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 20px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* Server info */
-.server-info {
-  position: fixed;
-  bottom: 10px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(10px);
-  padding: 10px 15px;
-  border-radius: 10px;
-  font-size: 11px;
-  opacity: 0.7;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .header h1 {
-    font-size: 20px;
-  }
-  
-  .stats {
-    gap: 20px;
-  }
-  
-  .stat-value {
-    font-size: 24px;
-  }
-  
-  .legend {
-    gap: 10px;
-  }
-  
-  .tables-grid {
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    gap: 15px;
-  }
-  
-  .table {
-    width: 80px;
-    height: 80px;
-  }
-  
-  .table-id {
-    font-size: 22px;
-  }
-}
+#legend{background:#1a1a1a;padding:10px;text-align:center;font-size:11px;border-bottom:1px solid #333}
+.legend-item{display:inline-block;margin:0 15px}
+.legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle}
 </style>
 </head>
 <body>
 
-<div class="header">
-  <h1>🎯 Table Tracker</h1>
-  <div class="status-badge connecting" id="status">Connecting...</div>
+<div id="status" class="connecting">Connecting...</div>
+
+<div id="header">
+  <h1>⚡ TABLE TRACKER</h1>
 </div>
 
-<div class="stats" id="stats">
+<div id="stats">
   <div class="stat">
     <div class="stat-value" id="stat-rooms">0</div>
     <div class="stat-label">Rooms</div>
   </div>
   <div class="stat">
     <div class="stat-value" id="stat-tables">0</div>
-    <div class="stat-label">Total</div>
+    <div class="stat-label">Tables</div>
   </div>
   <div class="stat">
-    <div class="stat-value" style="color: #22c55e" id="stat-active">0</div>
+    <div class="stat-value" id="stat-active">0</div>
     <div class="stat-label">Active</div>
   </div>
   <div class="stat">
@@ -431,35 +83,14 @@ body {
   </div>
 </div>
 
-<div class="legend">
-  <div class="legend-item">
-    <div class="legend-dot active"></div>
-    <span>Active (&lt;30s)</span>
-  </div>
-  <div class="legend-item">
-    <div class="legend-dot warning"></div>
-    <span>Warning (30s-15m)</span>
-  </div>
-  <div class="legend-item">
-    <div class="legend-dot inactive"></div>
-    <span>Inactive (15m-30m)</span>
-  </div>
-  <div class="legend-item">
-    <div class="legend-dot stale"></div>
-    <span>Stale (&gt;30m)</span>
-  </div>
+<div id="legend">
+  <span class="legend-item"><span class="legend-dot" style="background:#22c55e"></span>Active (&lt;30s)</span>
+  <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>Warning (30s-15m)</span>
+  <span class="legend-item"><span class="legend-dot" style="background:#ef4444"></span>Inactive (15m-30m)</span>
+  <span class="legend-item"><span class="legend-dot" style="background:#666"></span>Stale (&gt;30m)</span>
 </div>
 
-<div class="rooms-container" id="rooms">
-  <div class="loading">
-    <div class="spinner"></div>
-    Waiting for Masters...
-  </div>
-</div>
-
-<div class="server-info" id="server-info">
-  Client: Connecting...
-</div>
+<div id="rooms"></div>
 
 <script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
 <script>
@@ -468,20 +99,19 @@ const MQTT_HOST = 'wss://f3fbfed182654a99bd2d329ffb0aef99.s1.eu.hivemq.cloud:888
 const MQTT_USERNAME = 'master1';
 const MQTT_PASSWORD = 'Qwerty1234!';
 
-const MASTER_TIMEOUT = 60000;          // 15 сек - Master offline
-const TABLE_WARNING_TIMEOUT = 30000;   // 30 сек - жовтий (warning)
-const TABLE_INACTIVE_TIMEOUT = 900000; // 15 хв - червоний (inactive)
-const TABLE_STALE_TIMEOUT = 1800000;   // 30 хв - сірий (stale)
-const CLEANUP_INTERVAL = 3600000;      // 1 година - видалити зовсім
+const MASTER_TIMEOUT = 15000;
+const TABLE_WARNING_TIMEOUT = 30000;
+const TABLE_INACTIVE_TIMEOUT = 900000;
+const TABLE_STALE_TIMEOUT = 1800000;
+const CLEANUP_INTERVAL = 3600000;
 
-// 🔥 ПАРАМЕТРИ ПЕРЕМІЩЕННЯ
-const SIGNAL_FRESHNESS_THRESHOLD = 30000;  // 30 сек - свіжий сигнал
-const RSSI_DIFFERENCE_THRESHOLD = 10;       // 5 dBm - мінімальна різниця для переміщення
-const MIN_RSSI_FOR_ROOM = -95;             // -70 dBm - мінімум для входу в кімнату (~10 метрів)
+const SIGNAL_FRESHNESS_THRESHOLD = 30000;
+const RSSI_DIFFERENCE_THRESHOLD = 10;
+const MIN_RSSI_FOR_ROOM = -90;
 
-// ================= DATA STRUCTURES =================
-let masters = {};  // {masterId: {room, master_id, lastSeen, active}}
-let tables = {};   // {tableId: {signals: [{room, master_id, rssi, timestamp}]}}
+// ================= DATA =================
+let masters = {};
+let tables = {};
 
 // ================= MQTT =================
 const client = mqtt.connect(MQTT_HOST, {
@@ -493,13 +123,12 @@ const client = mqtt.connect(MQTT_HOST, {
 });
 
 client.on('connect', () => {
-  console.log('✅ MQTT Connected');
-  updateStatus('connected', 'Connected');
+  console.log('✅ Connected');
+  document.getElementById('status').className = 'connected';
+  document.getElementById('status').textContent = 'Connected';
   
   client.subscribe('tracker/raw/#', (err) => {
-    if (!err) {
-      console.log('📡 Subscribed to tracker/raw/#');
-    }
+    if (!err) console.log('📡 Subscribed');
   });
 });
 
@@ -511,26 +140,26 @@ client.on('message', (topic, message) => {
       handleMasterData(masterId, data);
     }
   } catch (e) {
-    console.error('❌ Parse error:', e);
+    console.error('Parse error:', e);
   }
 });
 
 client.on('disconnect', () => {
-  console.log('⚠️ Disconnected');
-  updateStatus('disconnected', 'Disconnected');
+  document.getElementById('status').className = 'disconnected';
+  document.getElementById('status').textContent = 'Disconnected';
 });
 
 client.on('error', (error) => {
-  console.error('❌ Error:', error);
-  updateStatus('disconnected', 'Error');
+  document.getElementById('status').className = 'disconnected';
+  document.getElementById('status').textContent = 'Error';
 });
 
 client.on('reconnect', () => {
-  console.log('🔄 Reconnecting...');
-  updateStatus('connecting', 'Reconnecting...');
+  document.getElementById('status').className = 'connecting';
+  document.getElementById('status').textContent = 'Reconnecting...';
 });
 
-// ================= MASTER DATA HANDLER =================
+// ================= HANDLERS =================
 function handleMasterData(masterId, data) {
   const now = Date.now();
   
@@ -549,13 +178,11 @@ function handleMasterData(masterId, data) {
     const lastSeen = table.last_seen || 0;
     
     if (!tables[tableId]) {
-      tables[tableId] = {
-        signals: []
-      };
-      console.log(`  [TABLE+] TX_${tableId} added`);
+      tables[tableId] = { signals: [] };
+      console.log(`  [+] TX_${tableId}`);
     }
     
-    const existingSignalIndex = tables[tableId].signals.findIndex(
+    const existingIndex = tables[tableId].signals.findIndex(
       s => s.master_id === data.master_id
     );
     
@@ -566,8 +193,8 @@ function handleMasterData(masterId, data) {
       timestamp: now - lastSeen
     };
     
-    if (existingSignalIndex >= 0) {
-      tables[tableId].signals[existingSignalIndex] = signal;
+    if (existingIndex >= 0) {
+      tables[tableId].signals[existingIndex] = signal;
     } else {
       tables[tableId].signals.push(signal);
     }
@@ -576,36 +203,35 @@ function handleMasterData(masterId, data) {
   processAndRender();
 }
 
-// ================= PROCESS STATE =================
+// ================= PROCESS =================
 function processAndRender() {
   const now = Date.now();
   
-  // Очистити timeout Masters
+  // Timeout Masters
   for (let masterId in masters) {
     if (now - masters[masterId].lastSeen > MASTER_TIMEOUT) {
       if (masters[masterId].active) {
-        console.log(`⚠️  Master ${masterId} timeout`);
+        console.log(`⚠️ Master ${masterId} timeout`);
         masters[masterId].active = false;
       }
     }
   }
   
-  // Очистити дуже старі сигнали
+  // Cleanup old signals
   for (let tableId in tables) {
     tables[tableId].signals = tables[tableId].signals.filter(signal => {
       return (now - signal.timestamp) < CLEANUP_INTERVAL;
     });
     
     if (tables[tableId].signals.length === 0) {
-      console.log(`  [TABLE-] TX_${tableId} removed (no signals)`);
+      console.log(`  [-] TX_${tableId}`);
       delete tables[tableId];
     }
   }
   
-  // Побудувати фінальний стан
+  // Build rooms
   let rooms = {};
   
-  // Створити кімнати від активних Masters
   for (let masterId in masters) {
     if (!masters[masterId].active) continue;
     
@@ -619,7 +245,7 @@ function processAndRender() {
     }
   }
   
-  // 🔥 РОЗУМНЕ ПЕРЕМІЩЕННЯ СТОЛИКІВ
+  // Process tables
   let activeCount = 0;
   let warningCount = 0;
   let inactiveCount = 0;
@@ -629,31 +255,24 @@ function processAndRender() {
     const signals = tables[tableId].signals;
     if (signals.length === 0) continue;
     
-    // Визначити поточну кімнату (де був востаннє)
     const lastSignal = signals.reduce((newest, current) => {
       return current.timestamp > newest.timestamp ? current : newest;
     });
     const currentRoom = lastSignal.room;
     
-    // Розділити сигнали по кімнатах
     const signalsByRoom = {};
     signals.forEach(signal => {
-      if (!signalsByRoom[signal.room]) {
-        signalsByRoom[signal.room] = [];
-      }
+      if (!signalsByRoom[signal.room]) signalsByRoom[signal.room] = [];
       signalsByRoom[signal.room].push(signal);
     });
     
-    // Найсвіжіший сигнал з кожної кімнати
     const freshestByRoom = {};
     for (let room in signalsByRoom) {
-      const freshest = signalsByRoom[room].reduce((newest, current) => {
+      freshestByRoom[room] = signalsByRoom[room].reduce((newest, current) => {
         return current.timestamp > newest.timestamp ? current : newest;
       });
-      freshestByRoom[room] = freshest;
     }
     
-    // Сигнал з поточної кімнати
     const currentRoomSignal = freshestByRoom[currentRoom];
     const currentRoomAge = currentRoomSignal ? (now - currentRoomSignal.timestamp) : Infinity;
     const currentRoomFresh = currentRoomAge < SIGNAL_FRESHNESS_THRESHOLD;
@@ -662,9 +281,7 @@ function processAndRender() {
     let finalSignal = currentRoomSignal || lastSignal;
     let moveReason = 'staying';
     
-    // 🔥 КЛЮЧОВА ЛОГІКА ПЕРЕМІЩЕННЯ
     if (currentRoomFresh && currentRoomSignal.rssi >= MIN_RSSI_FOR_ROOM) {
-      // Є свіжий і достатньо сильний сигнал з поточної кімнати
       let bestRoom = currentRoom;
       let bestSignal = currentRoomSignal;
       
@@ -675,13 +292,11 @@ function processAndRender() {
         const age = now - signal.timestamp;
         const isFresh = age < SIGNAL_FRESHNESS_THRESHOLD;
         
-        // 🔥 Перевірка: сигнал має бути свіжим І достатньо сильним
         if (isFresh && signal.rssi >= MIN_RSSI_FOR_ROOM) {
-          // Перемістити тільки якщо різниця значна
           if (signal.rssi - bestSignal.rssi > RSSI_DIFFERENCE_THRESHOLD) {
             bestRoom = room;
             bestSignal = signal;
-            moveReason = `moved (${bestSignal.rssi} dBm vs ${currentRoomSignal.rssi} dBm)`;
+            moveReason = `moved (${bestSignal.rssi} vs ${currentRoomSignal.rssi})`;
           }
         }
       }
@@ -690,8 +305,6 @@ function processAndRender() {
       finalSignal = bestSignal;
       
     } else if (currentRoomFresh && currentRoomSignal.rssi < MIN_RSSI_FOR_ROOM) {
-      // Свіжий сигнал з поточної кімнати, але слабкий
-      // Шукаємо кращу кімнату
       let bestRoom = null;
       let bestSignal = null;
       
@@ -700,7 +313,6 @@ function processAndRender() {
         const age = now - signal.timestamp;
         const isFresh = age < SIGNAL_FRESHNESS_THRESHOLD;
         
-        // 🔥 Кандидат має бути свіжим І достатньо сильним
         if (isFresh && signal.rssi >= MIN_RSSI_FOR_ROOM) {
           if (!bestSignal || signal.rssi > bestSignal.rssi) {
             bestRoom = room;
@@ -712,15 +324,12 @@ function processAndRender() {
       if (bestSignal) {
         finalRoom = bestRoom;
         finalSignal = bestSignal;
-        moveReason = `moved (current too weak: ${currentRoomSignal.rssi} dBm, new: ${bestSignal.rssi} dBm)`;
+        moveReason = `moved (weak: ${currentRoomSignal.rssi}, new: ${bestSignal.rssi})`;
       } else {
-        // Немає жодної підходящої кімнати - залишити в поточній
-        moveReason = `staying (all signals too weak)`;
+        moveReason = 'staying (all weak)';
       }
       
     } else {
-      // Немає свіжого сигналу з поточної кімнати
-      // Шукаємо ДУЖЕ свіжий (<10с) і ДУЖЕ сильний сигнал
       let emergencyRoom = null;
       let emergencySignal = null;
       
@@ -728,7 +337,6 @@ function processAndRender() {
         const signal = freshestByRoom[room];
         const age = now - signal.timestamp;
         
-        // 🔥 Emergency move: <10с, сильний сигнал, значно кращий
         if (age < 10000 && signal.rssi >= MIN_RSSI_FOR_ROOM) {
           if (signal.rssi - finalSignal.rssi > RSSI_DIFFERENCE_THRESHOLD * 2) {
             emergencyRoom = room;
@@ -741,15 +349,14 @@ function processAndRender() {
       if (emergencySignal) {
         finalRoom = emergencyRoom;
         finalSignal = emergencySignal;
-        moveReason = `emergency move (very fresh & strong: ${emergencySignal.rssi} dBm)`;
+        moveReason = `emergency (${emergencySignal.rssi})`;
       } else {
-        moveReason = `staying (waiting for fresh signal from ${currentRoom})`;
+        moveReason = `waiting (${currentRoom})`;
       }
     }
     
     const lastSeen = now - finalSignal.timestamp;
     
-    // Визначити статус столика
     let status = 'active';
     if (lastSeen > TABLE_STALE_TIMEOUT) {
       status = 'stale';
@@ -764,12 +371,10 @@ function processAndRender() {
       activeCount++;
     }
     
-    // Логування переміщень
     if (finalRoom !== currentRoom) {
       console.log(`  TX_${tableId}: ${currentRoom} → ${finalRoom} (${moveReason})`);
     }
     
-    // Додати столик в фінальну кімнату
     if (rooms[finalRoom]) {
       rooms[finalRoom].tables[tableId] = {
         rssi: finalSignal.rssi,
@@ -779,32 +384,33 @@ function processAndRender() {
     }
   }
   
-  // Stats
   const roomCount = Object.keys(rooms).length;
   const tableCount = Object.keys(tables).length;
   const masterCount = Object.keys(masters).filter(id => masters[id].active).length;
   
-  console.log(`📊 State: ${roomCount} rooms, ${tableCount} tables (✓${activeCount} ⚠${warningCount} ✗${inactiveCount} ⏸${staleCount})`);
+  console.log(`📊 ${roomCount} rooms, ${tableCount} tables (✓${activeCount} ⚠${warningCount} ✗${inactiveCount} ⏸${staleCount})`);
   
-  // Render
-  renderDashboard(rooms, roomCount, tableCount, activeCount, masterCount);
-  updateServerInfo();
+  render(rooms, roomCount, tableCount, activeCount, masterCount);
 }
 
 // ================= RENDER =================
-function renderDashboard(rooms, roomCount, tableCount, activeCount, masterCount) {
+function calcSize(count) {
+  if (count === 0) return 80;
+  if (count <= 5) return 120;
+  if (count <= 10) return 100;
+  if (count <= 20) return 80;
+  if (count <= 40) return 60;
+  return 50;
+}
+
+function render(rooms, roomCount, tableCount, activeCount, masterCount) {
   if (!rooms || Object.keys(rooms).length === 0) {
-    document.getElementById('rooms').innerHTML = `
-      <div class="loading">
-        <div class="spinner"></div>
-        Waiting for Masters...
-      </div>`;
+    document.getElementById('rooms').innerHTML = '<div class="empty">Waiting for data...</div>';
     updateStats(0, 0, 0, 0);
     return;
   }
   
   let html = '';
-  
   let roomNames = Object.keys(rooms).sort();
   
   roomNames.forEach(roomName => {
@@ -812,27 +418,19 @@ function renderDashboard(rooms, roomCount, tableCount, activeCount, masterCount)
     let tables = room.tables || {};
     let tableIds = Object.keys(tables);
     let count = tableIds.length;
+    let size = calcSize(count);
     let isActive = room.active !== false;
     
-    html += `
-    <div class="room-card ${isActive ? '' : 'offline'}">
+    html += `<div class="room ${isActive ? '' : 'offline'}">
       <div class="room-header">
-        <div class="room-title">${roomName}</div>
-        <div class="room-status ${isActive ? '' : 'offline'}">
-          ${isActive ? 'Online' : 'Offline'}
-        </div>
+        <h2>${roomName}</h2>
+        <div class="room-status ${isActive ? 'online' : 'offline'}">${isActive ? 'Online' : 'Offline'}</div>
       </div>
-      <div class="room-body">`;
+      <div class="tables">`;
     
     if (count === 0) {
-      html += `
-        <div class="empty-state">
-          <div class="empty-state-icon">📭</div>
-          <div class="empty-state-text">No tables detected</div>
-        </div>`;
+      html += '<div class="empty">No tables</div>';
     } else {
-      html += '<div class="tables-grid">';
-      
       tableIds.sort((a, b) => parseInt(a) - parseInt(b));
       
       tableIds.forEach(tableId => {
@@ -840,29 +438,19 @@ function renderDashboard(rooms, roomCount, tableCount, activeCount, masterCount)
         let status = table.status || 'active';
         let rssi = table.rssi || 0;
         let lastSeen = table.last_seen || 0;
+        let time = lastSeen < 1000 ? 'now' : 
+                   lastSeen < 60000 ? `${Math.floor(lastSeen/1000)}s` :
+                   lastSeen < 3600000 ? `${Math.floor(lastSeen/60000)}m` :
+                   `${Math.floor(lastSeen/3600000)}h`;
         
-        let lastSeenText = formatTime(lastSeen);
-        
-        let statusEmoji = {
-          'active': '✓',
-          'warning': '⚠',
-          'inactive': '✗',
-          'stale': '⏸'
-        }[status] || '?';
-        
-        html += `
-        <div class="table ${status}" 
-             title="Table ${tableId}
-Status: ${status}
-RSSI: ${rssi} dBm
-Last seen: ${lastSeenText} ago">
-          <div class="table-id">${tableId}</div>
-          <div class="table-rssi">${rssi} dBm</div>
-          <div class="table-time">${statusEmoji} ${lastSeenText}</div>
+        html += `<div class="table ${status}" 
+                 style="width:${size}px;height:${size}px;font-size:${size/4}px"
+                 title="TX_${tableId}: ${rssi} dBm, ${time}">
+          <div class="id">${tableId}</div>
+          <div class="rssi">${rssi} dBm</div>
+          <div class="time">${time}</div>
         </div>`;
       });
-      
-      html += '</div>';
     }
     
     html += '</div></div>';
@@ -870,26 +458,6 @@ Last seen: ${lastSeenText} ago">
   
   document.getElementById('rooms').innerHTML = html;
   updateStats(roomCount, tableCount, activeCount, masterCount);
-}
-
-// ================= HELPERS =================
-function updateStatus(state, text) {
-  const el = document.getElementById('status');
-  el.className = `status-badge ${state}`;
-  el.textContent = text;
-}
-
-function updateServerInfo() {
-  const roomCount = Object.keys(masters).filter(id => masters[id].active).length;
-  document.getElementById('server-info').textContent = 
-    `Client: ${roomCount} Master${roomCount !== 1 ? 's' : ''} online`;
-}
-
-function formatTime(ms) {
-  if (ms < 1000) return 'now';
-  if (ms < 60000) return `${Math.floor(ms/1000)}s`;
-  if (ms < 3600000) return `${Math.floor(ms/60000)}m`;
-  return `${Math.floor(ms/3600000)}h`;
 }
 
 function updateStats(rooms, tables, active, masters) {
@@ -913,9 +481,8 @@ setInterval(() => {
   processAndRender();
 }, 60000);
 
-// Initial render
-renderDashboard({}, 0, 0, 0, 0);
+// Init
+render({}, 0, 0, 0, 0);
 </script>
-
 </body>
 </html>
