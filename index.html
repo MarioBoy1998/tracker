@@ -5,66 +5,297 @@
 <title>Table Tracker</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-html,body{margin:0;height:100%;background:#0e0e0e;color:#fff;font-family:Arial;overflow:hidden}
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
-#status{position:fixed;top:10px;right:10px;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:bold;z-index:1000}
-#status.connected{background:#22c55e;color:#000}
-#status.disconnected{background:#ef4444;color:#fff}
-#status.connecting{background:#f59e0b;color:#000}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0a0a0a;
+  color: #e0e0e0;
+  min-height: 100vh;
+}
 
-#header{text-align:center;padding:20px;background:#1a1a1a;border-bottom:2px solid #333}
-#header h1{margin:0;font-size:32px;font-weight:700;color:#ef4444}
+/* Header */
+.header {
+  background: #111;
+  border-bottom: 1px solid #222;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
 
-#stats{display:flex;justify-content:center;gap:40px;padding:15px;background:#1a1a1a;border-bottom:1px solid #333}
-.stat{text-align:center}
-.stat-value{font-size:28px;font-weight:700;color:#ef4444}
-.stat-label{font-size:11px;opacity:0.7;margin-top:4px;text-transform:uppercase;letter-spacing:1px}
+.header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #fff;
+}
 
-#rooms{display:flex;flex-direction:column;height:calc(100vh - 160px);overflow-y:auto}
-.room{flex:1;border-bottom:2px solid #333;padding:20px;display:flex;flex-direction:column;min-height:0}
-.room:last-child{border-bottom:0}
-.room.offline{background:#1a0000}
+.status-badge {
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 
-.room-header{text-align:center;margin-bottom:16px}
-.room-header h2{margin:0;font-size:28px;font-weight:700;color:#ef4444}
-.room-status{font-size:14px;opacity:0.7;margin-top:4px}
-.room-status.offline{color:#ef4444}
-.room-status.online{color:#22c55e}
+.status-badge.connected {
+  background: #15803d;
+  color: #fff;
+}
 
-.tables{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;align-items:center;align-content:center;overflow-y:auto;flex:1}
+.status-badge.disconnected {
+  background: #991b1b;
+  color: #fff;
+}
 
-.table{border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;font-weight:700;position:relative;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all 0.3s ease;cursor:pointer}
+.status-badge.connecting {
+  background: #b45309;
+  color: #fff;
+}
 
-.table.active{background:#22c55e}
-.table.warning{background:#f59e0b;animation:pulse-warning 2s infinite}
-.table.inactive{background:#ef4444;animation:pulse-inactive 2s infinite}
-.table.stale{background:#666;opacity:0.6}
+/* Stats */
+.stats {
+  background: #111;
+  border-bottom: 1px solid #222;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  flex-wrap: wrap;
+}
 
-.table:hover{transform:scale(1.1)}
+.stat {
+  text-align: center;
+}
 
-.table .id{font-size:1em}
-.table .rssi{font-size:0.5em;font-weight:400;margin-top:0.2em;opacity:0.8}
-.table .time{font-size:0.4em;font-weight:400;margin-top:0.1em;opacity:0.7}
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+}
 
-.empty{opacity:.4;text-align:center;padding:40px;width:100%;font-size:20px}
+.stat-label {
+  font-size: 11px;
+  color: #888;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
 
-@keyframes pulse-warning{0%,100%{opacity:1}50%{opacity:0.7}}
-@keyframes pulse-inactive{0%,100%{opacity:1}50%{opacity:0.6}}
+/* Rooms Container */
+.rooms-container {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
 
-#legend{background:#1a1a1a;padding:10px;text-align:center;font-size:11px;border-bottom:1px solid #333}
-.legend-item{display:inline-block;margin:0 15px}
-.legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle}
+/* Room Card */
+.room-card {
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.room-card.offline {
+  opacity: 0.5;
+}
+
+.room-header {
+  background: #1a1a1a;
+  padding: 15px 20px;
+  border-bottom: 1px solid #222;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.room-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.room-status {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.room-status.online {
+  background: #15803d;
+  color: #fff;
+}
+
+.room-status.offline {
+  background: #991b1b;
+  color: #fff;
+}
+
+.room-body {
+  padding: 20px;
+}
+
+/* Tables Grid */
+.tables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+/* Table Item */
+.table-item {
+  background: #0a0a0a;
+  border: 2px solid #222;
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.table-item:hover {
+  border-color: #333;
+  transform: translateY(-2px);
+}
+
+.table-item.active {
+  border-color: #15803d;
+  background: #0f1f13;
+}
+
+.table-item.warning {
+  border-color: #b45309;
+  background: #1a1107;
+}
+
+.table-item.inactive {
+  border-color: #991b1b;
+  background: #1a0808;
+}
+
+.table-item.stale {
+  border-color: #444;
+  background: #0f0f0f;
+  opacity: 0.6;
+}
+
+.table-confidence {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #888;
+  background: #1a1a1a;
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+.table-id {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.table-rssi {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.table-status {
+  font-size: 11px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.table-time {
+  font-size: 10px;
+  color: #555;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #555;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  margin-bottom: 10px;
+  opacity: 0.3;
+}
+
+.empty-state-text {
+  font-size: 14px;
+}
+
+/* Loading */
+.loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.spinner {
+  border: 3px solid #222;
+  border-top: 3px solid #666;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header h1 {
+    font-size: 20px;
+  }
+  
+  .stats {
+    gap: 20px;
+  }
+  
+  .stat-value {
+    font-size: 24px;
+  }
+  
+  .tables-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+  }
+}
 </style>
 </head>
 <body>
 
-<div id="status" class="connecting">Connecting...</div>
-
-<div id="header">
-  <h1>⚡ TABLE TRACKER</h1>
+<div class="header">
+  <h1>🎯 Table Tracker</h1>
+  <div class="status-badge connecting" id="status">Connecting...</div>
 </div>
 
-<div id="stats">
+<div class="stats">
   <div class="stat">
     <div class="stat-value" id="stat-rooms">0</div>
     <div class="stat-label">Rooms</div>
@@ -83,14 +314,12 @@ html,body{margin:0;height:100%;background:#0e0e0e;color:#fff;font-family:Arial;o
   </div>
 </div>
 
-<div id="legend">
-  <span class="legend-item"><span class="legend-dot" style="background:#22c55e"></span>Active (&lt;30s)</span>
-  <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>Warning (30s-15m)</span>
-  <span class="legend-item"><span class="legend-dot" style="background:#ef4444"></span>Inactive (15m-30m)</span>
-  <span class="legend-item"><span class="legend-dot" style="background:#666"></span>Stale (&gt;30m)</span>
+<div class="rooms-container" id="rooms">
+  <div class="loading">
+    <div class="spinner"></div>
+    <div>Waiting for data...</div>
+  </div>
 </div>
-
-<div id="rooms"></div>
 
 <script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
 <script>
@@ -108,10 +337,13 @@ const CLEANUP_INTERVAL = 3600000;
 const SIGNAL_FRESHNESS_THRESHOLD = 30000;
 const RSSI_DIFFERENCE_THRESHOLD = 10;
 const MIN_RSSI_FOR_ROOM = -90;
+const CONFIDENCE_THRESHOLD = 0.8;
+const HISTORY_LENGTH = 2;
 
 // ================= DATA =================
 let masters = {};
 let tables = {};
+let tableHistory = {};
 
 // ================= MQTT =================
 const client = mqtt.connect(MQTT_HOST, {
@@ -124,8 +356,7 @@ const client = mqtt.connect(MQTT_HOST, {
 
 client.on('connect', () => {
   console.log('✅ Connected');
-  document.getElementById('status').className = 'connected';
-  document.getElementById('status').textContent = 'Connected';
+  updateStatus('connected', 'Connected');
   
   client.subscribe('tracker/raw/#', (err) => {
     if (!err) console.log('📡 Subscribed');
@@ -145,19 +376,44 @@ client.on('message', (topic, message) => {
 });
 
 client.on('disconnect', () => {
-  document.getElementById('status').className = 'disconnected';
-  document.getElementById('status').textContent = 'Disconnected';
+  updateStatus('disconnected', 'Disconnected');
 });
 
 client.on('error', (error) => {
-  document.getElementById('status').className = 'disconnected';
-  document.getElementById('status').textContent = 'Error';
+  updateStatus('disconnected', 'Error');
 });
 
 client.on('reconnect', () => {
-  document.getElementById('status').className = 'connecting';
-  document.getElementById('status').textContent = 'Reconnecting...';
+  updateStatus('connecting', 'Reconnecting...');
 });
+
+// ================= HISTORY =================
+function updateTableHistory(tableId, roomName, rssi, timestamp) {
+  if (!tableHistory[tableId]) {
+    tableHistory[tableId] = [];
+  }
+
+  tableHistory[tableId].push({
+    room: roomName,
+    rssi: rssi,
+    timestamp: timestamp
+  });
+
+  if (tableHistory[tableId].length > HISTORY_LENGTH) {
+    tableHistory[tableId].shift();
+  }
+}
+
+function calculateConfidence(tableId, roomName) {
+  if (!tableHistory[tableId] || tableHistory[tableId].length === 0) {
+    return 0.5;
+  }
+
+  const recentHistory = tableHistory[tableId].slice(-HISTORY_LENGTH);
+  const roomCount = recentHistory.filter(h => h.room === roomName).length;
+
+  return roomCount / recentHistory.length;
+}
 
 // ================= HANDLERS =================
 function handleMasterData(masterId, data) {
@@ -198,6 +454,8 @@ function handleMasterData(masterId, data) {
     } else {
       tables[tableId].signals.push(signal);
     }
+    
+    updateTableHistory(tableId, data.room, rssi, now);
   });
   
   processAndRender();
@@ -226,6 +484,7 @@ function processAndRender() {
     if (tables[tableId].signals.length === 0) {
       console.log(`  [-] TX_${tableId}`);
       delete tables[tableId];
+      delete tableHistory[tableId];
     }
   }
   
@@ -240,7 +499,7 @@ function processAndRender() {
       rooms[room] = {
         active: true,
         master_id: masters[masterId].master_id,
-        tables: {}
+        tables: []
       };
     }
   }
@@ -279,7 +538,6 @@ function processAndRender() {
     
     let finalRoom = currentRoom;
     let finalSignal = currentRoomSignal || lastSignal;
-    let moveReason = 'staying';
     
     if (currentRoomFresh && currentRoomSignal.rssi >= MIN_RSSI_FOR_ROOM) {
       let bestRoom = currentRoom;
@@ -296,7 +554,6 @@ function processAndRender() {
           if (signal.rssi - bestSignal.rssi > RSSI_DIFFERENCE_THRESHOLD) {
             bestRoom = room;
             bestSignal = signal;
-            moveReason = `moved (${bestSignal.rssi} vs ${currentRoomSignal.rssi})`;
           }
         }
       }
@@ -324,9 +581,6 @@ function processAndRender() {
       if (bestSignal) {
         finalRoom = bestRoom;
         finalSignal = bestSignal;
-        moveReason = `moved (weak: ${currentRoomSignal.rssi}, new: ${bestSignal.rssi})`;
-      } else {
-        moveReason = 'staying (all weak)';
       }
       
     } else {
@@ -349,13 +603,11 @@ function processAndRender() {
       if (emergencySignal) {
         finalRoom = emergencyRoom;
         finalSignal = emergencySignal;
-        moveReason = `emergency (${emergencySignal.rssi})`;
-      } else {
-        moveReason = `waiting (${currentRoom})`;
       }
     }
     
     const lastSeen = now - finalSignal.timestamp;
+    const confidence = calculateConfidence(tableId, finalRoom);
     
     let status = 'active';
     if (lastSeen > TABLE_STALE_TIMEOUT) {
@@ -371,16 +623,14 @@ function processAndRender() {
       activeCount++;
     }
     
-    if (finalRoom !== currentRoom) {
-      console.log(`  TX_${tableId}: ${currentRoom} → ${finalRoom} (${moveReason})`);
-    }
-    
     if (rooms[finalRoom]) {
-      rooms[finalRoom].tables[tableId] = {
+      rooms[finalRoom].tables.push({
+        id: tableId,
         rssi: finalSignal.rssi,
         last_seen: lastSeen,
-        status: status
-      };
+        status: status,
+        confidence: confidence
+      });
     }
   }
   
@@ -394,18 +644,13 @@ function processAndRender() {
 }
 
 // ================= RENDER =================
-function calcSize(count) {
-  if (count === 0) return 80;
-  if (count <= 5) return 120;
-  if (count <= 10) return 100;
-  if (count <= 20) return 80;
-  if (count <= 40) return 60;
-  return 50;
-}
-
 function render(rooms, roomCount, tableCount, activeCount, masterCount) {
   if (!rooms || Object.keys(rooms).length === 0) {
-    document.getElementById('rooms').innerHTML = '<div class="empty">Waiting for data...</div>';
+    document.getElementById('rooms').innerHTML = `
+      <div class="loading">
+        <div class="spinner"></div>
+        <div>Waiting for data...</div>
+      </div>`;
     updateStats(0, 0, 0, 0);
     return;
   }
@@ -415,42 +660,48 @@ function render(rooms, roomCount, tableCount, activeCount, masterCount) {
   
   roomNames.forEach(roomName => {
     let room = rooms[roomName];
-    let tables = room.tables || {};
-    let tableIds = Object.keys(tables);
-    let count = tableIds.length;
-    let size = calcSize(count);
+    let tables = room.tables || [];
     let isActive = room.active !== false;
     
-    html += `<div class="room ${isActive ? '' : 'offline'}">
-      <div class="room-header">
-        <h2>${roomName}</h2>
-        <div class="room-status ${isActive ? 'online' : 'offline'}">${isActive ? 'Online' : 'Offline'}</div>
-      </div>
-      <div class="tables">`;
+    tables.sort((a, b) => parseInt(a.id) - parseInt(b.id));
     
-    if (count === 0) {
-      html += '<div class="empty">No tables</div>';
+    html += `
+    <div class="room-card ${isActive ? '' : 'offline'}">
+      <div class="room-header">
+        <div class="room-title">${roomName}</div>
+        <div class="room-status ${isActive ? 'online' : 'offline'}">
+          ${isActive ? 'Online' : 'Offline'}
+        </div>
+      </div>
+      <div class="room-body">`;
+    
+    if (tables.length === 0) {
+      html += `
+        <div class="empty-state">
+          <div class="empty-state-icon">📭</div>
+          <div class="empty-state-text">No tables detected</div>
+        </div>`;
     } else {
-      tableIds.sort((a, b) => parseInt(a) - parseInt(b));
+      html += '<div class="tables-grid">';
       
-      tableIds.forEach(tableId => {
-        let table = tables[tableId];
-        let status = table.status || 'active';
-        let rssi = table.rssi || 0;
-        let lastSeen = table.last_seen || 0;
-        let time = lastSeen < 1000 ? 'now' : 
-                   lastSeen < 60000 ? `${Math.floor(lastSeen/1000)}s` :
-                   lastSeen < 3600000 ? `${Math.floor(lastSeen/60000)}m` :
-                   `${Math.floor(lastSeen/3600000)}h`;
+      tables.forEach(table => {
+        let confidencePercent = Math.round(table.confidence * 100);
+        let time = table.last_seen < 1000 ? 'now' : 
+                   table.last_seen < 60000 ? `${Math.floor(table.last_seen/1000)}s` :
+                   table.last_seen < 3600000 ? `${Math.floor(table.last_seen/60000)}m` :
+                   `${Math.floor(table.last_seen/3600000)}h`;
         
-        html += `<div class="table ${status}" 
-                 style="width:${size}px;height:${size}px;font-size:${size/4}px"
-                 title="TX_${tableId}: ${rssi} dBm, ${time}">
-          <div class="id">${tableId}</div>
-          <div class="rssi">${rssi} dBm</div>
-          <div class="time">${time}</div>
+        html += `
+        <div class="table-item ${table.status}">
+          <div class="table-confidence">${confidencePercent}%</div>
+          <div class="table-id">${table.id}</div>
+          <div class="table-rssi">${table.rssi} dBm</div>
+          <div class="table-status">${table.status}</div>
+          <div class="table-time">${time}</div>
         </div>`;
       });
+      
+      html += '</div>';
     }
     
     html += '</div></div>';
@@ -458,6 +709,13 @@ function render(rooms, roomCount, tableCount, activeCount, masterCount) {
   
   document.getElementById('rooms').innerHTML = html;
   updateStats(roomCount, tableCount, activeCount, masterCount);
+}
+
+// ================= HELPERS =================
+function updateStatus(state, text) {
+  const el = document.getElementById('status');
+  el.className = `status-badge ${state}`;
+  el.textContent = text;
 }
 
 function updateStats(rooms, tables, active, masters) {
@@ -476,6 +734,7 @@ setInterval(() => {
     });
     if (tables[tableId].signals.length === 0) {
       delete tables[tableId];
+      delete tableHistory[tableId];
     }
   }
   processAndRender();
