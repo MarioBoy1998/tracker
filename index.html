@@ -184,18 +184,6 @@ body {
   opacity: 0.6;
 }
 
-.table-confidence {
-  position: absolute;
-  top: 6px;
-  right: 8px;
-  font-size: 10px;
-  font-weight: 600;
-  color: #888;
-  background: #1a1a1a;
-  padding: 2px 6px;
-  border-radius: 8px;
-}
-
 .table-id {
   font-size: 20px;
   font-weight: 700;
@@ -326,378 +314,152 @@ body {
 <div class="rooms-container" id="rooms">
   <div class="loading">
     <div class="spinner"></div>
-    <div>Waiting for data...</div>
+    <div>Connecting to Firebase...</div>
   </div>
 </div>
 
 <div id="debug">
-  <div>Masters: <span id="debug-masters">0</span></div>
+  <div>Source: <span style="color:#22c55e">Firebase</span></div>
+  <div>Rooms: <span id="debug-rooms">0</span></div>
   <div>Tables: <span id="debug-tables">0</span></div>
   <div>Last update: <span id="debug-time">-</span></div>
 </div>
 
-<script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
 <script>
+// ================= FIREBASE CONFIG =================
+const firebaseConfig = {
+  databaseURL: "https://table-tracker-712c8-default-rtdb.europe-west1.firebasedatabase.app"
+};
+
 // ================= CONFIG =================
-const MQTT_HOST = 'wss://f3fbfed182654a99bd2d329ffb0aef99.s1.eu.hivemq.cloud:8884/mqtt';
-const MQTT_USERNAME = 'master1';
-const MQTT_PASSWORD = 'Qwerty1234!';
+const MASTER_TIMEOUT = 30000;        // 30 секунд
+const TABLE_WARNING_TIMEOUT = 45000;  // 45 секунд
+const TABLE_INACTIVE_TIMEOUT = 120000; // 2 хвилини
 
-const MASTER_TIMEOUT = 15000;
-const TABLE_WARNING_TIMEOUT = 30000;
-const TABLE_INACTIVE_TIMEOUT = 900000;
-const TABLE_STALE_TIMEOUT = 1800000;
-const CLEANUP_INTERVAL = 3600000;
+// ================= INIT =================
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
 
-const SIGNAL_FRESHNESS_THRESHOLD = 30000;
-const RSSI_DIFFERENCE_THRESHOLD = 10;
-const MIN_RSSI_FOR_ROOM = -90;
+console.log('🚀 Firebase Table Tracker Started');
+console.log('📡 Listening to: /rooms/');
 
 // ================= DATA =================
-let masters = {};
-let tables = {};
-let tableHistory = {};
-let lastRenderTime = 0;
+let roomsData = {};
 
-// ================= MQTT =================
-const client = mqtt.connect(MQTT_HOST, {
-  username: MQTT_USERNAME,
-  password: MQTT_PASSWORD,
-  clean: true,
-  connectTimeout: 4000,
-  reconnectPeriod: 1000,
-});
-
-client.on('connect', () => {
-  console.log('✅ MQTT Connected');
-  updateStatus('connected', 'Connected');
+// ================= FIREBASE LISTENER =================
+database.ref('/rooms').on('value', (snapshot) => {
+  console.log('\n📥 Firebase data received');
   
-  client.subscribe('tracker/raw/#', (err) => {
-    if (!err) {
-      console.log('📡 Subscribed to tracker/raw/#');
-    } else {
-      console.error('❌ Subscribe failed:', err);
-    }
-  });
-});
-
-client.on('message', (topic, message) => {
-  console.log(`📨 Message from ${topic}`);
+  const data = snapshot.val();
   
-  try {
-    if (topic.startsWith('tracker/raw/')) {
-      const masterId = topic.split('/')[2];
-      const data = JSON.parse(message.toString());
-      
-      console.log(`  Master ${masterId}: room=${data.room}, tables=${data.tables?.length || 0}`);
-      
-      handleMasterData(masterId, data);
-    }
-  } catch (e) {
-    console.error('❌ Parse error:', e);
+  if (!data) {
+    console.log('⚠️  No data in Firebase');
+    updateStatus('disconnected', 'No Data');
+    render({}, 0, 0, 0, 0);
+    return;
   }
-});
-
-client.on('disconnect', () => {
-  console.log('⚠️ Disconnected');
-  updateStatus('disconnected', 'Disconnected');
-});
-
-client.on('error', (error) => {
-  console.error('❌ MQTT Error:', error);
+  
+  console.log('✅ Raw data:', data);
+  
+  roomsData = data;
+  processAndRender();
+  
+  updateStatus('connected', 'Connected');
+}, (error) => {
+  console.error('❌ Firebase error:', error);
   updateStatus('disconnected', 'Error');
 });
-
-client.on('reconnect', () => {
-  console.log('🔄 Reconnecting...');
-  updateStatus('connecting', 'Reconnecting...');
-});
-
-// ================= HISTORY =================
-function updateTableHistory(tableId, roomName, rssi, timestamp) {
-  if (!tableHistory[tableId]) {
-    tableHistory[tableId] = [];
-  }
-
-  tableHistory[tableId].push({
-    room: roomName,
-    rssi: rssi,
-    timestamp: timestamp
-  });
-
-  if (tableHistory[tableId].length > 2) {
-    tableHistory[tableId].shift();
-  }
-}
-
-function calculateConfidence(tableId, roomName) {
-  if (!tableHistory[tableId] || tableHistory[tableId].length === 0) {
-    return 0.5;
-  }
-
-  const recentHistory = tableHistory[tableId].slice(-2);
-  const roomCount = recentHistory.filter(h => h.room === roomName).length;
-
-  return roomCount / recentHistory.length;
-}
-
-// ================= HANDLERS =================
-function handleMasterData(masterId, data) {
-  const now = Date.now();
-  
-  masters[masterId] = {
-    room: data.room,
-    master_id: data.master_id,
-    lastSeen: now,
-    active: true
-  };
-  
-  console.log(`  ✅ Master ${masterId} saved: room=${data.room}`);
-  
-  (data.tables || []).forEach(table => {
-    const tableId = table.id;
-    const rssi = table.rssi;
-    const lastSeen = table.last_seen || 0;
-    
-    if (!tables[tableId]) {
-      tables[tableId] = { signals: [] };
-      console.log(`    [+] New table: TX_${tableId}`);
-    }
-    
-    const existingIndex = tables[tableId].signals.findIndex(
-      s => s.master_id === data.master_id
-    );
-    
-    const signal = {
-      room: data.room,
-      master_id: data.master_id,
-      rssi: rssi,
-      timestamp: now - lastSeen
-    };
-    
-    if (existingIndex >= 0) {
-      tables[tableId].signals[existingIndex] = signal;
-    } else {
-      tables[tableId].signals.push(signal);
-    }
-    
-    updateTableHistory(tableId, data.room, rssi, now);
-  });
-  
-  updateDebug();
-  processAndRender();
-}
 
 // ================= PROCESS =================
 function processAndRender() {
   const now = Date.now();
   
-  console.log('\n🔄 Processing...');
+  console.log('\n🔄 Processing Firebase data...');
   
-  // Timeout Masters
-  let activeMasterCount = 0;
-  for (let masterId in masters) {
-    if (now - masters[masterId].lastSeen > MASTER_TIMEOUT) {
-      if (masters[masterId].active) {
-        console.log(`⚠️ Master ${masterId} timeout`);
-        masters[masterId].active = false;
-      }
-    } else {
-      activeMasterCount++;
-    }
-  }
-  
-  console.log(`  Masters: ${Object.keys(masters).length} total, ${activeMasterCount} active`);
-  
-  // Cleanup old signals
-  for (let tableId in tables) {
-    tables[tableId].signals = tables[tableId].signals.filter(signal => {
-      return (now - signal.timestamp) < CLEANUP_INTERVAL;
-    });
-    
-    if (tables[tableId].signals.length === 0) {
-      console.log(`  [-] Remove table: TX_${tableId}`);
-      delete tables[tableId];
-      delete tableHistory[tableId];
-    }
-  }
-  
-  console.log(`  Tables: ${Object.keys(tables).length} total`);
-  
-  // Build rooms
   let rooms = {};
-  
-  for (let masterId in masters) {
-    if (!masters[masterId].active) continue;
-    
-    const room = masters[masterId].room;
-    if (!rooms[room]) {
-      rooms[room] = {
-        active: true,
-        master_id: masters[masterId].master_id,
-        tables: []
-      };
-      console.log(`  + Room: ${room}`);
-    }
-  }
-  
-  // Process tables with smart logic
+  let totalTables = 0;
   let activeCount = 0;
-  let warningCount = 0;
-  let inactiveCount = 0;
-  let staleCount = 0;
+  let activeMasters = 0;
   
-  for (let tableId in tables) {
-    const signals = tables[tableId].signals;
-    if (signals.length === 0) continue;
+  for (let roomName in roomsData) {
+    const roomData = roomsData[roomName];
     
-    // Find newest signal (current room)
-    const lastSignal = signals.reduce((newest, current) => {
-      return current.timestamp > newest.timestamp ? current : newest;
-    });
-    const currentRoom = lastSignal.room;
+    console.log(`  📦 Room: ${roomName}`);
+    console.log(`     Master: ${roomData.master_id}`);
+    console.log(`     Updated: ${roomData.updated} (${new Date(roomData.updated * 1000).toLocaleTimeString()})`);
+    console.log(`     Tables: ${roomData.tables?.length || 0}`);
     
-    // Group signals by room
-    const signalsByRoom = {};
-    signals.forEach(signal => {
-      if (!signalsByRoom[signal.room]) signalsByRoom[signal.room] = [];
-      signalsByRoom[signal.room].push(signal);
-    });
+    // Перевірити чи мастер активний
+    const updatedTimestamp = roomData.updated * 1000; // Convert to ms
+    const age = now - updatedTimestamp;
+    const isActive = age < MASTER_TIMEOUT;
     
-    // Get freshest signal from each room
-    const freshestByRoom = {};
-    for (let room in signalsByRoom) {
-      freshestByRoom[room] = signalsByRoom[room].reduce((newest, current) => {
-        return current.timestamp > newest.timestamp ? current : newest;
-      });
+    console.log(`     Age: ${Math.round(age/1000)}s - ${isActive ? '✅ ACTIVE' : '❌ TIMEOUT'}`);
+    
+    if (isActive) {
+      activeMasters++;
     }
     
-    // Current room signal
-    const currentRoomSignal = freshestByRoom[currentRoom];
-    const currentRoomAge = currentRoomSignal ? (now - currentRoomSignal.timestamp) : Infinity;
-    const currentRoomFresh = currentRoomAge < SIGNAL_FRESHNESS_THRESHOLD;
+    rooms[roomName] = {
+      active: isActive,
+      master_id: roomData.master_id,
+      room_name: roomData.room_name,
+      tables: []
+    };
     
-    let finalRoom = currentRoom;
-    let finalSignal = currentRoomSignal || lastSignal;
-    
-    // Smart movement logic
-    if (currentRoomFresh && currentRoomSignal.rssi >= MIN_RSSI_FOR_ROOM) {
-      let bestRoom = currentRoom;
-      let bestSignal = currentRoomSignal;
-      
-      for (let room in freshestByRoom) {
-        if (room === currentRoom) continue;
+    // Process tables
+    if (roomData.tables && Array.isArray(roomData.tables)) {
+      roomData.tables.forEach(table => {
+        totalTables++;
         
-        const signal = freshestByRoom[room];
-        const age = now - signal.timestamp;
-        const isFresh = age < SIGNAL_FRESHNESS_THRESHOLD;
+        const lastSeen = table.last_seen || 0;
         
-        if (isFresh && signal.rssi >= MIN_RSSI_FOR_ROOM) {
-          if (signal.rssi - bestSignal.rssi > RSSI_DIFFERENCE_THRESHOLD) {
-            bestRoom = room;
-            bestSignal = signal;
-            console.log(`    TX_${tableId}: ${currentRoom} → ${bestRoom} (${bestSignal.rssi} vs ${currentRoomSignal.rssi})`);
-          }
+        let status = 'active';
+        if (lastSeen > TABLE_INACTIVE_TIMEOUT) {
+          status = 'inactive';
+        } else if (lastSeen > TABLE_WARNING_TIMEOUT) {
+          status = 'warning';
+        } else {
+          activeCount++;
         }
-      }
-      
-      finalRoom = bestRoom;
-      finalSignal = bestSignal;
-      
-    } else if (currentRoomFresh && currentRoomSignal.rssi < MIN_RSSI_FOR_ROOM) {
-      let bestRoom = null;
-      let bestSignal = null;
-      
-      for (let room in freshestByRoom) {
-        const signal = freshestByRoom[room];
-        const age = now - signal.timestamp;
-        const isFresh = age < SIGNAL_FRESHNESS_THRESHOLD;
         
-        if (isFresh && signal.rssi >= MIN_RSSI_FOR_ROOM) {
-          if (!bestSignal || signal.rssi > bestSignal.rssi) {
-            bestRoom = room;
-            bestSignal = signal;
-          }
-        }
-      }
-      
-      if (bestSignal) {
-        finalRoom = bestRoom;
-        finalSignal = bestSignal;
-        console.log(`    TX_${tableId}: ${currentRoom} → ${bestRoom} (weak current: ${currentRoomSignal.rssi})`);
-      }
-    } else {
-      // Emergency move if very fresh and strong
-      let emergencyRoom = null;
-      let emergencySignal = null;
-      
-      for (let room in freshestByRoom) {
-        const signal = freshestByRoom[room];
-        const age = now - signal.timestamp;
+        console.log(`       - Table ${table.id}: ${table.rssi} dBm, ${Math.round(lastSeen/1000)}s ago [${status}]`);
         
-        if (age < 10000 && signal.rssi >= MIN_RSSI_FOR_ROOM) {
-          if (signal.rssi - finalSignal.rssi > RSSI_DIFFERENCE_THRESHOLD * 2) {
-            emergencyRoom = room;
-            emergencySignal = signal;
-            break;
-          }
-        }
-      }
-      
-      if (emergencySignal) {
-        finalRoom = emergencyRoom;
-        finalSignal = emergencySignal;
-        console.log(`    TX_${tableId}: ${currentRoom} → ${emergencyRoom} (emergency)`);
-      }
-    }
-    
-    const lastSeen = now - finalSignal.timestamp;
-    const confidence = calculateConfidence(tableId, finalRoom);
-    
-    let status = 'active';
-    if (lastSeen > TABLE_STALE_TIMEOUT) {
-      status = 'stale';
-      staleCount++;
-    } else if (lastSeen > TABLE_INACTIVE_TIMEOUT) {
-      status = 'inactive';
-      inactiveCount++;
-    } else if (lastSeen > TABLE_WARNING_TIMEOUT) {
-      status = 'warning';
-      warningCount++;
-    } else {
-      activeCount++;
-    }
-    
-    if (rooms[finalRoom]) {
-      rooms[finalRoom].tables.push({
-        id: tableId,
-        rssi: finalSignal.rssi,
-        last_seen: lastSeen,
-        status: status,
-        confidence: confidence
+        rooms[roomName].tables.push({
+          id: table.id,
+          rssi: table.rssi,
+          last_seen: lastSeen,
+          status: status,
+          room: table.room || roomName
+        });
       });
     }
   }
   
   const roomCount = Object.keys(rooms).length;
-  const tableCount = Object.keys(tables).length;
-  const masterCount = activeMasterCount;
   
-  console.log(`📊 Result: ${roomCount} rooms, ${tableCount} tables (✓${activeCount} ⚠${warningCount} ✗${inactiveCount} ⏸${staleCount})`);
+  console.log(`\n📊 Summary:`);
+  console.log(`   Rooms: ${roomCount}`);
+  console.log(`   Masters: ${activeMasters} active`);
+  console.log(`   Tables: ${totalTables} total, ${activeCount} active`);
   
-  lastRenderTime = now;
-  render(rooms, roomCount, tableCount, activeCount, masterCount);
+  updateDebug(roomCount, totalTables);
+  render(rooms, roomCount, totalTables, activeCount, activeMasters);
 }
 
 // ================= RENDER =================
 function render(rooms, roomCount, tableCount, activeCount, masterCount) {
-  console.log(`🎨 Rendering ${roomCount} rooms...`);
+  console.log(`\n🎨 Rendering ${roomCount} rooms...`);
   
   if (!rooms || Object.keys(rooms).length === 0) {
     document.getElementById('rooms').innerHTML = `
       <div class="loading">
         <div class="spinner"></div>
-        <div>Waiting for data...</div>
+        <div>Waiting for data from Firebase...</div>
       </div>`;
     updateStats(0, 0, 0, 0);
     return;
@@ -705,8 +467,6 @@ function render(rooms, roomCount, tableCount, activeCount, masterCount) {
   
   let html = '';
   let roomNames = Object.keys(rooms).sort();
-  
-  console.log(`  Rooms to render: ${roomNames.join(', ')}`);
   
   roomNames.forEach(roomName => {
     let room = rooms[roomName];
@@ -720,7 +480,7 @@ function render(rooms, roomCount, tableCount, activeCount, masterCount) {
     html += `
     <div class="room-card ${isActive ? '' : 'offline'}">
       <div class="room-header">
-        <div class="room-title">${roomName}</div>
+        <div class="room-title">${roomName} <span style="font-size:12px;color:#666;font-weight:400">(${room.master_id})</span></div>
         <div class="room-status ${isActive ? 'online' : 'offline'}">
           ${isActive ? 'Online' : 'Offline'}
         </div>
@@ -737,16 +497,14 @@ function render(rooms, roomCount, tableCount, activeCount, masterCount) {
       html += '<div class="tables-grid">';
       
       tables.forEach(table => {
-        let confidencePercent = Math.round(table.confidence * 100);
         let time = table.last_seen < 1000 ? 'now' : 
-                   table.last_seen < 60000 ? `${Math.floor(table.last_seen/1000)}s` :
-                   table.last_seen < 3600000 ? `${Math.floor(table.last_seen/60000)}m` :
-                   `${Math.floor(table.last_seen/3600000)}h`;
+                   table.last_seen < 60000 ? `${Math.floor(table.last_seen/1000)}s ago` :
+                   table.last_seen < 3600000 ? `${Math.floor(table.last_seen/60000)}m ago` :
+                   `${Math.floor(table.last_seen/3600000)}h ago`;
         
         html += `
         <div class="table-item ${table.status}">
-          <div class="table-confidence">${confidencePercent}%</div>
-          <div class="table-id">${table.id}</div>
+          <div class="table-id">TX_${table.id}</div>
           <div class="table-rssi">${table.rssi} dBm</div>
           <div class="table-status">${table.status}</div>
           <div class="table-time">${time}</div>
@@ -762,7 +520,7 @@ function render(rooms, roomCount, tableCount, activeCount, masterCount) {
   document.getElementById('rooms').innerHTML = html;
   updateStats(roomCount, tableCount, activeCount, masterCount);
   
-  console.log('✅ Render complete\n');
+  console.log('✅ Render complete');
 }
 
 // ================= HELPERS =================
@@ -779,34 +537,16 @@ function updateStats(rooms, tables, active, masters) {
   document.getElementById('stat-masters').textContent = masters;
 }
 
-function updateDebug() {
-  const activeMasters = Object.values(masters).filter(m => m.active).length;
-  document.getElementById('debug-masters').textContent = activeMasters;
-  document.getElementById('debug-tables').textContent = Object.keys(tables).length;
+function updateDebug(rooms, tables) {
+  document.getElementById('debug-rooms').textContent = rooms;
+  document.getElementById('debug-tables').textContent = tables;
   
   const now = new Date();
   document.getElementById('debug-time').textContent = now.toLocaleTimeString();
 }
 
-// Auto cleanup
-setInterval(() => {
-  console.log('⏰ Auto cleanup...');
-  const now = Date.now();
-  for (let tableId in tables) {
-    tables[tableId].signals = tables[tableId].signals.filter(signal => {
-      return (now - signal.timestamp) < CLEANUP_INTERVAL;
-    });
-    if (tables[tableId].signals.length === 0) {
-      delete tables[tableId];
-      delete tableHistory[tableId];
-    }
-  }
-  updateDebug();
-  processAndRender();
-}, 60000);
-
 // Init
-console.log('🚀 Starting Table Tracker...');
+console.log('⏳ Waiting for Firebase connection...');
 render({}, 0, 0, 0, 0);
 </script>
 </body>
