@@ -5,7 +5,6 @@
 <title>Table Tracker</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-/* ВСІ СТИЛІ БЕЗ ЗМІН */
 * {
   margin: 0;
   padding: 0;
@@ -19,6 +18,7 @@ body {
   min-height: 100vh;
 }
 
+/* ========== HEADER ========== */
 .header {
   background: #111;
   border-bottom: 1px solid #222;
@@ -30,10 +30,21 @@ body {
   gap: 15px;
 }
 
+.header.pro-mode {
+  padding: 30px 20px;
+  border-bottom: 2px solid #333;
+}
+
 .header h1 {
   font-size: 24px;
   font-weight: 600;
   color: #fff;
+}
+
+.header.pro-mode h1 {
+  font-size: 32px;
+  font-weight: 300;
+  letter-spacing: 2px;
 }
 
 .status-badge {
@@ -61,6 +72,12 @@ body {
   color: #fff;
 }
 
+/* Приховати в PRO режимі */
+.header.pro-mode .status-badge {
+  display: none;
+}
+
+/* ========== STATS ========== */
 .stats {
   background: #111;
   border-bottom: 1px solid #222;
@@ -69,6 +86,10 @@ body {
   justify-content: center;
   gap: 40px;
   flex-wrap: wrap;
+}
+
+.stats.hidden {
+  display: none;
 }
 
 .stat {
@@ -89,11 +110,19 @@ body {
   letter-spacing: 1px;
 }
 
+/* ========== ROOMS ========== */
 .rooms-container {
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.rooms-container.pro-mode {
+  padding: 40px;
+  gap: 40px;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
 .room-card {
@@ -103,13 +132,14 @@ body {
   overflow: hidden;
 }
 
-.room-card.offline {
-  opacity: 0.5;
+.room-card.pro-mode {
+  background: transparent;
+  border: none;
+  border-radius: 0;
 }
 
-.room-card.stale-data {
-  opacity: 0.8;
-  border: 1px solid #b45309;
+.room-card.offline {
+  opacity: 0.5;
 }
 
 .room-header {
@@ -121,10 +151,24 @@ body {
   align-items: center;
 }
 
+.room-header.pro-mode {
+  background: transparent;
+  padding: 0 0 20px 0;
+  border-bottom: 2px solid #333;
+  margin-bottom: 30px;
+}
+
 .room-title {
   font-size: 18px;
   font-weight: 600;
   color: #fff;
+}
+
+.room-title.pro-mode {
+  font-size: 28px;
+  font-weight: 300;
+  letter-spacing: 3px;
+  text-transform: uppercase;
 }
 
 .room-status {
@@ -144,14 +188,29 @@ body {
   color: #fff;
 }
 
+/* Приховати в PRO режимі */
+.room-status.hidden {
+  display: none;
+}
+
 .room-body {
   padding: 20px;
 }
 
+.room-body.pro-mode {
+  padding: 0;
+}
+
+/* ========== TABLES GRID ========== */
 .tables-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 12px;
+}
+
+.tables-grid.pro-mode {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 20px;
 }
 
 .table-item {
@@ -160,8 +219,16 @@ body {
   border-radius: 12px;
   padding: 12px;
   text-align: center;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+}
+
+.table-item.pro-mode {
+  background: #111;
+  border: 3px solid #222;
+  border-radius: 20px;
+  padding: 30px 20px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
 }
 
 .table-item:hover {
@@ -169,9 +236,21 @@ body {
   transform: translateY(-2px);
 }
 
+.table-item.pro-mode:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 8px 12px rgba(0,0,0,0.4);
+}
+
+/* STATUS COLORS */
 .table-item.active {
   border-color: #15803d;
   background: #0f1f13;
+}
+
+.table-item.pro-mode.active {
+  border-color: #22c55e;
+  background: #0a1f0f;
+  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.2);
 }
 
 .table-item.warning {
@@ -179,9 +258,21 @@ body {
   background: #1a1107;
 }
 
+.table-item.pro-mode.warning {
+  border-color: #f59e0b;
+  background: #1a1207;
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.2);
+}
+
 .table-item.inactive {
   border-color: #991b1b;
   background: #1a0808;
+}
+
+.table-item.pro-mode.inactive {
+  border-color: #ef4444;
+  background: #1a0808;
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.2);
 }
 
 .table-item.stale {
@@ -190,6 +281,12 @@ body {
   opacity: 0.6;
 }
 
+.table-item.pro-mode.stale {
+  border-color: #555;
+  opacity: 0.4;
+}
+
+/* CONFIDENCE BADGE */
 .table-confidence {
   position: absolute;
   top: 6px;
@@ -202,6 +299,11 @@ body {
   border-radius: 8px;
 }
 
+.table-confidence.hidden {
+  display: none;
+}
+
+/* TABLE ID */
 .table-id {
   font-size: 20px;
   font-weight: 700;
@@ -209,6 +311,14 @@ body {
   margin-bottom: 4px;
 }
 
+.table-id.pro-mode {
+  font-size: 48px;
+  font-weight: 300;
+  margin-bottom: 0;
+  letter-spacing: 2px;
+}
+
+/* TABLE DETAILS */
 .table-rssi {
   font-size: 13px;
   color: #888;
@@ -228,10 +338,22 @@ body {
   color: #555;
 }
 
+/* Приховати деталі в PRO режимі */
+.table-rssi.hidden,
+.table-status.hidden,
+.table-time.hidden {
+  display: none;
+}
+
+/* ========== EMPTY STATE ========== */
 .empty-state {
   text-align: center;
   padding: 40px;
   color: #555;
+}
+
+.empty-state.pro-mode {
+  padding: 80px 40px;
 }
 
 .empty-state-icon {
@@ -240,10 +362,21 @@ body {
   opacity: 0.3;
 }
 
+.empty-state-icon.pro-mode {
+  font-size: 72px;
+}
+
 .empty-state-text {
   font-size: 14px;
 }
 
+.empty-state-text.pro-mode {
+  font-size: 18px;
+  font-weight: 300;
+  letter-spacing: 1px;
+}
+
+/* ========== LOADING ========== */
 .loading {
   text-align: center;
   padding: 60px 20px;
@@ -265,6 +398,7 @@ body {
   100% { transform: rotate(360deg); }
 }
 
+/* ========== RECONNECT BANNER ========== */
 .reconnect-banner {
   background: #b45309;
   color: #fff;
@@ -279,6 +413,11 @@ body {
   display: block;
 }
 
+.reconnect-banner.hidden {
+  display: none;
+}
+
+/* ========== DEBUG ========== */
 #debug {
   position: fixed;
   bottom: 10px;
@@ -292,9 +431,18 @@ body {
   color: #888;
 }
 
+#debug.hidden {
+  display: none;
+}
+
+/* ========== RESPONSIVE ========== */
 @media (max-width: 768px) {
   .header h1 {
     font-size: 20px;
+  }
+  
+  .header.pro-mode h1 {
+    font-size: 24px;
   }
   
   .stats {
@@ -310,6 +458,19 @@ body {
     gap: 10px;
   }
   
+  .tables-grid.pro-mode {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 15px;
+  }
+  
+  .table-id.pro-mode {
+    font-size: 36px;
+  }
+  
+  .room-title.pro-mode {
+    font-size: 20px;
+  }
+  
   #debug {
     font-size: 9px;
     max-width: 200px;
@@ -319,7 +480,7 @@ body {
 </head>
 <body>
 
-<div class="header">
+<div class="header" id="header">
   <h1>🎯 Table Tracker</h1>
   <div class="status-badge connecting" id="status">Connecting...</div>
 </div>
@@ -328,7 +489,7 @@ body {
   ⚠️ Reconnecting to Firebase... Showing cached data
 </div>
 
-<div class="stats">
+<div class="stats" id="stats">
   <div class="stat">
     <div class="stat-value" id="stat-rooms">0</div>
     <div class="stat-label">Rooms</div>
@@ -355,11 +516,15 @@ body {
 </div>
 
 <div id="debug">
+  <div>Mode: <span id="debug-mode" style="color:#22c55e">DEV</span></div>
   <div>Connection: <span id="debug-connection" style="color:#b45309">connecting</span></div>
   <div>Masters: <span id="debug-masters">0</span></div>
   <div>Tables: <span id="debug-tables">0</span></div>
   <div>Updates: <span id="debug-updates">0</span></div>
   <div>Last update: <span id="debug-time">-</span></div>
+  <div style="margin-top:5px;padding-top:5px;border-top:1px solid #333;font-size:9px;color:#666;">
+    Console: APP_CONFIG.PRO_MODE = true/false
+  </div>
 </div>
 
 <!-- Firebase SDK -->
@@ -367,12 +532,100 @@ body {
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
 <script>
+// ================= 🎨 CONFIG - ЗМІНЮЙ ЧЕРЕЗ CONSOLE =================
+window.APP_CONFIG = {
+  PRO_MODE: false,           // true = чистий дизайн, false = показати все
+  SHOW_CONFIDENCE: false,    // Показувати відсотки впевненості
+  SHOW_RSSI: false,          // Показувати dBm
+  SHOW_STATUS_TEXT: false,   // Показувати текст статусу
+  SHOW_TIME: false,          // Показувати час
+  SHOW_STATS: true,          // Показувати верхню статистику
+  SHOW_ROOM_STATUS: true,    // Показувати Online/Offline badge
+  SHOW_CONNECTION: true,     // Показувати статус підключення
+  SHOW_RECONNECT_BANNER: true, // Показувати reconnect banner
+  SHOW_DEBUG: true           // Показувати debug panel
+};
+
+// Функція для застосування режиму
+function applyDisplayMode() {
+  const config = window.APP_CONFIG;
+  
+  console.log('🎨 Applying display mode:', config.PRO_MODE ? 'PRO' : 'DEV');
+  
+  // Update debug mode indicator
+  const debugMode = document.getElementById('debug-mode');
+  if (debugMode) {
+    debugMode.textContent = config.PRO_MODE ? 'PRO' : 'DEV';
+    debugMode.style.color = config.PRO_MODE ? '#a855f7' : '#22c55e';
+  }
+  
+  // Header
+  const header = document.getElementById('header');
+  if (header) {
+    header.classList.toggle('pro-mode', config.PRO_MODE);
+  }
+  
+  // Stats
+  const stats = document.getElementById('stats');
+  if (stats) {
+    stats.classList.toggle('hidden', config.PRO_MODE || !config.SHOW_STATS);
+  }
+  
+  // Debug
+  const debug = document.getElementById('debug');
+  if (debug) {
+    debug.classList.toggle('hidden', config.PRO_MODE || !config.SHOW_DEBUG);
+  }
+  
+  // Reconnect banner
+  const banner = document.getElementById('reconnect-banner');
+  if (banner) {
+    banner.classList.toggle('hidden', config.PRO_MODE || !config.SHOW_RECONNECT_BANNER);
+  }
+  
+  // Connection status badge
+  const status = document.getElementById('status');
+  if (status) {
+    status.style.display = (config.PRO_MODE || !config.SHOW_CONNECTION) ? 'none' : 'inline-flex';
+  }
+  
+  // Rooms container
+  const roomsContainer = document.getElementById('rooms');
+  if (roomsContainer) {
+    roomsContainer.classList.toggle('pro-mode', config.PRO_MODE);
+  }
+  
+  // Trigger re-render
+  if (lastCachedRooms) {
+    const stats = calculateStats(lastCachedRooms);
+    render(lastCachedRooms, stats.roomCount, stats.tableCount, stats.activeCount, stats.masterCount);
+  }
+  
+  console.log('✅ Display mode applied');
+}
+
+// Слухати зміни конфігу
+let configProxy = new Proxy(window.APP_CONFIG, {
+  set: function(target, property, value) {
+    console.log(`🔧 Config change: ${property} = ${value}`);
+    target[property] = value;
+    applyDisplayMode();
+    return true;
+  }
+});
+window.APP_CONFIG = configProxy;
+
+console.log('💡 PRO MODE CONTROLS:');
+console.log('   APP_CONFIG.PRO_MODE = true     // Увімкнути PRO режим');
+console.log('   APP_CONFIG.PRO_MODE = false    // Вимкнути PRO режим');
+console.log('   APP_CONFIG.SHOW_CONFIDENCE = true/false');
+console.log('   APP_CONFIG.SHOW_RSSI = true/false');
+console.log('   APP_CONFIG.SHOW_STATUS_TEXT = true/false');
+console.log('   APP_CONFIG.SHOW_TIME = true/false');
+
 // ================= GLOBAL ERROR HANDLER =================
 window.addEventListener('error', (event) => {
   console.error('🔥 CRITICAL ERROR:', event.error);
-  console.error('   Message:', event.message);
-  console.error('   File:', event.filename);
-  console.error('   Line:', event.lineno);
   event.preventDefault();
 });
 
@@ -439,7 +692,6 @@ function loadFromCache() {
     const cacheData = JSON.parse(cached);
     const age = Date.now() - cacheData.timestamp;
     
-    // Використати cache тільки якщо він свіжий (<5 хвилин)
     if (age > 300000) {
       console.log('⚠️ Cache too old, ignoring');
       return false;
@@ -453,7 +705,6 @@ function loadFromCache() {
     console.log(`   Masters: ${Object.keys(masters).length}`);
     console.log(`   Tables: ${Object.keys(tables).length}`);
     
-    // Показати закешовані дані
     processAndRender();
     hasReceivedData = true;
     
@@ -479,16 +730,15 @@ connectedRef.on('value', (snap) => {
       debugConn.textContent = 'connected';
       debugConn.style.color = '#22c55e';
     }
-    if (reconnectBanner) {
+    if (reconnectBanner && window.APP_CONFIG.SHOW_RECONNECT_BANNER && !window.APP_CONFIG.PRO_MODE) {
       reconnectBanner.classList.remove('show');
     }
   } else {
     console.log('❌ Firebase DISCONNECTED');
     
-    // Якщо вже отримували дані - показати як reconnecting
     if (hasReceivedData) {
       updateStatus('connecting', 'Reconnecting...');
-      if (reconnectBanner) {
+      if (reconnectBanner && window.APP_CONFIG.SHOW_RECONNECT_BANNER && !window.APP_CONFIG.PRO_MODE) {
         reconnectBanner.classList.add('show');
       }
     } else {
@@ -502,10 +752,9 @@ connectedRef.on('value', (snap) => {
   }
 });
 
-// ================= FIREBASE LISTENER З DEBOUNCING =================
+// ================= FIREBASE LISTENER =================
 console.log('🚀 Starting Table Tracker (Firebase)...');
 
-// Спробувати завантажити з cache
 const hasCachedData = loadFromCache();
 
 database.ref('/rooms').on('value', (snapshot) => {
@@ -544,10 +793,7 @@ function handleFirebaseUpdate(snapshot) {
     if (!data) {
       console.log('⚠️ No data from Firebase');
       
-      // Якщо є закешовані дані - НЕ очищати UI
-      if (hasReceivedData || hasCachedData) {
-        console.log('   Keeping current UI (have cached data)');
-      } else {
+      if (!hasReceivedData && !hasCachedData) {
         updateStatus('disconnected', 'No Data');
       }
       
@@ -557,7 +803,6 @@ function handleFirebaseUpdate(snapshot) {
     
     hasReceivedData = true;
     
-    // Приховати reconnect banner
     const reconnectBanner = document.getElementById('reconnect-banner');
     if (reconnectBanner) {
       reconnectBanner.classList.remove('show');
@@ -584,7 +829,6 @@ function handleFirebaseUpdate(snapshot) {
       }
     }
     
-    // Зберегти в cache після обробки
     saveToCache();
     
   } catch (error) {
@@ -687,7 +931,7 @@ function handleMasterData(masterId, data) {
   }
 }
 
-// ================= PROCESS (БЕЗ ЗМІН) =================
+// ================= PROCESS =================
 function processAndRender() {
   try {
     const now = Date.now();
@@ -880,7 +1124,7 @@ function processAndRender() {
     console.log(`📊 Result: ${roomCount} rooms, ${tableCount} tables (✓${activeCount} ⚠${warningCount} ✗${inactiveCount} ⏸${staleCount})`);
     
     lastRenderTime = now;
-    lastCachedRooms = rooms; // Зберегти для використання при reconnect
+    lastCachedRooms = rooms;
     render(rooms, roomCount, tableCount, activeCount, masterCount);
     
   } catch (error) {
@@ -888,13 +1132,31 @@ function processAndRender() {
   }
 }
 
-// ================= RENDER (БЕЗ ЗМІН) =================
+// ================= CALCULATE STATS =================
+function calculateStats(rooms) {
+  let roomCount = Object.keys(rooms).length;
+  let tableCount = 0;
+  let activeCount = 0;
+  let masterCount = 0;
+  
+  for (let roomName in rooms) {
+    let room = rooms[roomName];
+    if (room.active) masterCount++;
+    tableCount += room.tables.length;
+    activeCount += room.tables.filter(t => t.status === 'active').length;
+  }
+  
+  return { roomCount, tableCount, activeCount, masterCount };
+}
+
+// ================= RENDER =================
 function render(rooms, roomCount, tableCount, activeCount, masterCount) {
   try {
-    console.log(`🎨 Rendering ${roomCount} rooms...`);
+    const config = window.APP_CONFIG;
+    
+    console.log(`🎨 Rendering ${roomCount} rooms... (PRO: ${config.PRO_MODE})`);
     
     if (!rooms || Object.keys(rooms).length === 0) {
-      // НЕ показувати loading якщо вже були дані
       if (!hasReceivedData && !hasCachedData) {
         document.getElementById('rooms').innerHTML = `
           <div class="loading">
@@ -922,23 +1184,23 @@ function render(rooms, roomCount, tableCount, activeCount, masterCount) {
         tables.sort((a, b) => parseInt(a.id) - parseInt(b.id));
         
         html += `
-        <div class="room-card ${isActive ? '' : 'offline'}">
-          <div class="room-header">
-            <div class="room-title">${roomName}</div>
-            <div class="room-status ${isActive ? 'online' : 'offline'}">
+        <div class="room-card ${config.PRO_MODE ? 'pro-mode' : ''} ${isActive ? '' : 'offline'}">
+          <div class="room-header ${config.PRO_MODE ? 'pro-mode' : ''}">
+            <div class="room-title ${config.PRO_MODE ? 'pro-mode' : ''}">${roomName}</div>
+            <div class="room-status ${isActive ? 'online' : 'offline'} ${(config.PRO_MODE || !config.SHOW_ROOM_STATUS) ? 'hidden' : ''}">
               ${isActive ? 'Online' : 'Offline'}
             </div>
           </div>
-          <div class="room-body">`;
+          <div class="room-body ${config.PRO_MODE ? 'pro-mode' : ''}">`;
         
         if (tables.length === 0) {
           html += `
-            <div class="empty-state">
-              <div class="empty-state-icon">📭</div>
-              <div class="empty-state-text">No tables detected</div>
+            <div class="empty-state ${config.PRO_MODE ? 'pro-mode' : ''}">
+              <div class="empty-state-icon ${config.PRO_MODE ? 'pro-mode' : ''}">📭</div>
+              <div class="empty-state-text ${config.PRO_MODE ? 'pro-mode' : ''}">No tables detected</div>
             </div>`;
         } else {
-          html += '<div class="tables-grid">';
+          html += `<div class="tables-grid ${config.PRO_MODE ? 'pro-mode' : ''}">`;
           
           tables.forEach(table => {
             let confidencePercent = Math.round(table.confidence * 100);
@@ -948,12 +1210,12 @@ function render(rooms, roomCount, tableCount, activeCount, masterCount) {
                        `${Math.floor(table.last_seen/3600000)}h`;
             
             html += `
-            <div class="table-item ${table.status}">
-              <div class="table-confidence">${confidencePercent}%</div>
-              <div class="table-id">${table.id}</div>
-              <div class="table-rssi">${table.rssi} dBm</div>
-              <div class="table-status">${table.status}</div>
-              <div class="table-time">${time}</div>
+            <div class="table-item ${config.PRO_MODE ? 'pro-mode' : ''} ${table.status}">
+              <div class="table-confidence ${(!config.SHOW_CONFIDENCE || config.PRO_MODE) ? 'hidden' : ''}">${confidencePercent}%</div>
+              <div class="table-id ${config.PRO_MODE ? 'pro-mode' : ''}">${table.id}</div>
+              <div class="table-rssi ${(!config.SHOW_RSSI || config.PRO_MODE) ? 'hidden' : ''}">${table.rssi} dBm</div>
+              <div class="table-status ${(!config.SHOW_STATUS_TEXT || config.PRO_MODE) ? 'hidden' : ''}">${table.status}</div>
+              <div class="table-time ${(!config.SHOW_TIME || config.PRO_MODE) ? 'hidden' : ''}">${time}</div>
             </div>`;
           });
           
@@ -1045,10 +1307,13 @@ setInterval(() => {
   }
 }, 60000);
 
-// Init - НЕ показувати loading якщо є cache
+// Init
 if (!hasCachedData) {
   render({}, 0, 0, 0, 0);
 }
+
+// Apply initial display mode
+applyDisplayMode();
 </script>
 </body>
 </html>
