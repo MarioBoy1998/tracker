@@ -5,7 +5,7 @@
 <title>Table Tracker</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-/* ВСІ СТИЛІ БЕЗ ЗМІН - копіюй з попереднього файлу */
+/* ВСІ СТИЛІ БЕЗ ЗМІН */
 * {
   margin: 0;
   padding: 0;
@@ -105,6 +105,11 @@ body {
 
 .room-card.offline {
   opacity: 0.5;
+}
+
+.room-card.stale-data {
+  opacity: 0.8;
+  border: 1px solid #b45309;
 }
 
 .room-header {
@@ -260,6 +265,20 @@ body {
   100% { transform: rotate(360deg); }
 }
 
+.reconnect-banner {
+  background: #b45309;
+  color: #fff;
+  padding: 10px 20px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  display: none;
+}
+
+.reconnect-banner.show {
+  display: block;
+}
+
 #debug {
   position: fixed;
   bottom: 10px;
@@ -305,6 +324,10 @@ body {
   <div class="status-badge connecting" id="status">Connecting...</div>
 </div>
 
+<div class="reconnect-banner" id="reconnect-banner">
+  ⚠️ Reconnecting to Firebase... Showing cached data
+</div>
+
 <div class="stats">
   <div class="stat">
     <div class="stat-value" id="stat-rooms">0</div>
@@ -332,6 +355,7 @@ body {
 </div>
 
 <div id="debug">
+  <div>Connection: <span id="debug-connection" style="color:#b45309">connecting</span></div>
   <div>Masters: <span id="debug-masters">0</span></div>
   <div>Tables: <span id="debug-tables">0</span></div>
   <div>Updates: <span id="debug-updates">0</span></div>
@@ -349,13 +373,11 @@ window.addEventListener('error', (event) => {
   console.error('   Message:', event.message);
   console.error('   File:', event.filename);
   console.error('   Line:', event.lineno);
-  // НЕ перезавантажувати сторінку!
   event.preventDefault();
 });
 
 window.addEventListener('unhandledrejection', (event) => {
   console.error('🔥 UNHANDLED PROMISE REJECTION:', event.reason);
-  // НЕ перезавантажувати сторінку!
   event.preventDefault();
 });
 
@@ -378,7 +400,8 @@ const SIGNAL_FRESHNESS_THRESHOLD = 30000;
 const RSSI_DIFFERENCE_THRESHOLD = 10;
 const MIN_RSSI_FOR_ROOM = -90;
 
-const UPDATE_DEBOUNCE_MS = 500; // Debounce для запобігання надто частих оновлень
+const UPDATE_DEBOUNCE_MS = 500;
+const CACHE_KEY = 'table_tracker_cache';
 
 // ================= DATA =================
 let masters = {};
@@ -388,28 +411,118 @@ let lastRenderTime = 0;
 let updateCount = 0;
 let updateDebounceTimer = null;
 let isProcessing = false;
+let isConnected = false;
+let hasReceivedData = false;
+let lastCachedRooms = null;
+
+// ================= CACHE FUNCTIONS =================
+function saveToCache() {
+  try {
+    const cacheData = {
+      masters: masters,
+      tables: tables,
+      tableHistory: tableHistory,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+    console.log('💾 Data cached to localStorage');
+  } catch (error) {
+    console.error('❌ Error saving to cache:', error);
+  }
+}
+
+function loadFromCache() {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return false;
+    
+    const cacheData = JSON.parse(cached);
+    const age = Date.now() - cacheData.timestamp;
+    
+    // Використати cache тільки якщо він свіжий (<5 хвилин)
+    if (age > 300000) {
+      console.log('⚠️ Cache too old, ignoring');
+      return false;
+    }
+    
+    masters = cacheData.masters || {};
+    tables = cacheData.tables || {};
+    tableHistory = cacheData.tableHistory || {};
+    
+    console.log(`📂 Loaded from cache (${Math.round(age/1000)}s old)`);
+    console.log(`   Masters: ${Object.keys(masters).length}`);
+    console.log(`   Tables: ${Object.keys(tables).length}`);
+    
+    // Показати закешовані дані
+    processAndRender();
+    hasReceivedData = true;
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Error loading from cache:', error);
+    return false;
+  }
+}
+
+// ================= FIREBASE CONNECTION TRACKING =================
+const connectedRef = database.ref('.info/connected');
+connectedRef.on('value', (snap) => {
+  isConnected = snap.val() === true;
+  
+  const debugConn = document.getElementById('debug-connection');
+  const reconnectBanner = document.getElementById('reconnect-banner');
+  
+  if (isConnected) {
+    console.log('✅ Firebase CONNECTED');
+    updateStatus('connected', 'Connected');
+    if (debugConn) {
+      debugConn.textContent = 'connected';
+      debugConn.style.color = '#22c55e';
+    }
+    if (reconnectBanner) {
+      reconnectBanner.classList.remove('show');
+    }
+  } else {
+    console.log('❌ Firebase DISCONNECTED');
+    
+    // Якщо вже отримували дані - показати як reconnecting
+    if (hasReceivedData) {
+      updateStatus('connecting', 'Reconnecting...');
+      if (reconnectBanner) {
+        reconnectBanner.classList.add('show');
+      }
+    } else {
+      updateStatus('disconnected', 'Disconnected');
+    }
+    
+    if (debugConn) {
+      debugConn.textContent = 'disconnected';
+      debugConn.style.color = '#dc2626';
+    }
+  }
+});
 
 // ================= FIREBASE LISTENER З DEBOUNCING =================
 console.log('🚀 Starting Table Tracker (Firebase)...');
+
+// Спробувати завантажити з cache
+const hasCachedData = loadFromCache();
 
 database.ref('/rooms').on('value', (snapshot) => {
   try {
     updateCount++;
     console.log(`📨 Firebase update #${updateCount} received`);
     
-    // Clear previous debounce timer
     if (updateDebounceTimer) {
       clearTimeout(updateDebounceTimer);
     }
     
-    // Debounce updates
     updateDebounceTimer = setTimeout(() => {
       handleFirebaseUpdate(snapshot);
     }, UPDATE_DEBOUNCE_MS);
     
   } catch (error) {
     console.error('❌ Error in Firebase listener:', error);
-    // НЕ кидати помилку далі - просто логувати
   }
 }, (error) => {
   console.error('❌ Firebase error:', error);
@@ -429,15 +542,29 @@ function handleFirebaseUpdate(snapshot) {
     const data = snapshot.val();
     
     if (!data) {
-      console.log('⚠️ No data');
-      updateStatus('disconnected', 'No Data');
+      console.log('⚠️ No data from Firebase');
+      
+      // Якщо є закешовані дані - НЕ очищати UI
+      if (hasReceivedData || hasCachedData) {
+        console.log('   Keeping current UI (have cached data)');
+      } else {
+        updateStatus('disconnected', 'No Data');
+      }
+      
       isProcessing = false;
       return;
     }
     
+    hasReceivedData = true;
+    
+    // Приховати reconnect banner
+    const reconnectBanner = document.getElementById('reconnect-banner');
+    if (reconnectBanner) {
+      reconnectBanner.classList.remove('show');
+    }
+    
     updateStatus('connected', 'Connected');
     
-    // Конвертувати Firebase структуру
     for (let roomName in data) {
       try {
         const roomData = data[roomName];
@@ -454,9 +581,11 @@ function handleFirebaseUpdate(snapshot) {
         handleMasterData(masterId, mqttLikeData);
       } catch (error) {
         console.error(`❌ Error processing room ${roomName}:`, error);
-        // Продовжити з наступною кімнатою
       }
     }
+    
+    // Зберегти в cache після обробки
+    saveToCache();
     
   } catch (error) {
     console.error('❌ Error in handleFirebaseUpdate:', error);
@@ -558,14 +687,13 @@ function handleMasterData(masterId, data) {
   }
 }
 
-// ================= PROCESS =================
+// ================= PROCESS (БЕЗ ЗМІН) =================
 function processAndRender() {
   try {
     const now = Date.now();
     
     console.log('\n🔄 Processing...');
     
-    // Timeout Masters
     let activeMasterCount = 0;
     for (let masterId in masters) {
       if (now - masters[masterId].lastSeen > MASTER_TIMEOUT) {
@@ -580,7 +708,6 @@ function processAndRender() {
     
     console.log(`  Masters: ${Object.keys(masters).length} total, ${activeMasterCount} active`);
     
-    // Cleanup old signals
     for (let tableId in tables) {
       tables[tableId].signals = tables[tableId].signals.filter(signal => {
         return (now - signal.timestamp) < CLEANUP_INTERVAL;
@@ -595,7 +722,6 @@ function processAndRender() {
     
     console.log(`  Tables: ${Object.keys(tables).length} total`);
     
-    // Build rooms
     let rooms = {};
     
     for (let masterId in masters) {
@@ -612,7 +738,6 @@ function processAndRender() {
       }
     }
     
-    // Process tables with smart logic
     let activeCount = 0;
     let warningCount = 0;
     let inactiveCount = 0;
@@ -623,20 +748,17 @@ function processAndRender() {
         const signals = tables[tableId].signals;
         if (signals.length === 0) continue;
         
-        // Find newest signal (current room)
         const lastSignal = signals.reduce((newest, current) => {
           return current.timestamp > newest.timestamp ? current : newest;
         });
         const currentRoom = lastSignal.room;
         
-        // Group signals by room
         const signalsByRoom = {};
         signals.forEach(signal => {
           if (!signalsByRoom[signal.room]) signalsByRoom[signal.room] = [];
           signalsByRoom[signal.room].push(signal);
         });
         
-        // Get freshest signal from each room
         const freshestByRoom = {};
         for (let room in signalsByRoom) {
           freshestByRoom[room] = signalsByRoom[room].reduce((newest, current) => {
@@ -644,7 +766,6 @@ function processAndRender() {
           });
         }
         
-        // Current room signal
         const currentRoomSignal = freshestByRoom[currentRoom];
         const currentRoomAge = currentRoomSignal ? (now - currentRoomSignal.timestamp) : Infinity;
         const currentRoomFresh = currentRoomAge < SIGNAL_FRESHNESS_THRESHOLD;
@@ -652,7 +773,6 @@ function processAndRender() {
         let finalRoom = currentRoom;
         let finalSignal = currentRoomSignal || lastSignal;
         
-        // Smart movement logic
         if (currentRoomFresh && currentRoomSignal.rssi >= MIN_RSSI_FOR_ROOM) {
           let bestRoom = currentRoom;
           let bestSignal = currentRoomSignal;
@@ -699,7 +819,6 @@ function processAndRender() {
             console.log(`    TX_${tableId}: ${currentRoom} → ${bestRoom} (weak current: ${currentRoomSignal.rssi})`);
           }
         } else {
-          // Emergency move if very fresh and strong
           let emergencyRoom = null;
           let emergencySignal = null;
           
@@ -761,6 +880,7 @@ function processAndRender() {
     console.log(`📊 Result: ${roomCount} rooms, ${tableCount} tables (✓${activeCount} ⚠${warningCount} ✗${inactiveCount} ⏸${staleCount})`);
     
     lastRenderTime = now;
+    lastCachedRooms = rooms; // Зберегти для використання при reconnect
     render(rooms, roomCount, tableCount, activeCount, masterCount);
     
   } catch (error) {
@@ -768,18 +888,21 @@ function processAndRender() {
   }
 }
 
-// ================= RENDER =================
+// ================= RENDER (БЕЗ ЗМІН) =================
 function render(rooms, roomCount, tableCount, activeCount, masterCount) {
   try {
     console.log(`🎨 Rendering ${roomCount} rooms...`);
     
     if (!rooms || Object.keys(rooms).length === 0) {
-      document.getElementById('rooms').innerHTML = `
-        <div class="loading">
-          <div class="spinner"></div>
-          <div>Waiting for data...</div>
-        </div>`;
-      updateStats(0, 0, 0, 0);
+      // НЕ показувати loading якщо вже були дані
+      if (!hasReceivedData && !hasCachedData) {
+        document.getElementById('rooms').innerHTML = `
+          <div class="loading">
+            <div class="spinner"></div>
+            <div>Waiting for data...</div>
+          </div>`;
+        updateStats(0, 0, 0, 0);
+      }
       return;
     }
     
@@ -922,8 +1045,10 @@ setInterval(() => {
   }
 }, 60000);
 
-// Init
-render({}, 0, 0, 0, 0);
+// Init - НЕ показувати loading якщо є cache
+if (!hasCachedData) {
+  render({}, 0, 0, 0, 0);
+}
 </script>
 </body>
 </html>
