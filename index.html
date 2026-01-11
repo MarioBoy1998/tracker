@@ -534,16 +534,16 @@ body {
 <script>
 // ================= 🎨 CONFIG - ЗМІНЮЙ ЧЕРЕЗ CONSOLE =================
 window.APP_CONFIG = {
-  PRO_MODE: false,           // true = чистий дизайн, false = показати все
+  PRO_MODE: false,           // true = чистий дизайн (auto-hide stats/debug), false = показати все
   SHOW_CONFIDENCE: false,    // Показувати відсотки впевненості
   SHOW_RSSI: false,          // Показувати dBm
   SHOW_STATUS_TEXT: false,   // Показувати текст статусу
   SHOW_TIME: false,          // Показувати час
-  SHOW_STATS: true,          // Показувати верхню статистику
+  SHOW_STATS: true,          // Показувати верхню статистику (ignored in PRO mode)
   SHOW_ROOM_STATUS: true,    // Показувати Online/Offline badge
   SHOW_CONNECTION: true,     // Показувати статус підключення
   SHOW_RECONNECT_BANNER: true, // Показувати reconnect banner
-  SHOW_DEBUG: true           // Показувати debug panel
+  SHOW_DEBUG: true           // Показувати debug panel (ignored in PRO mode)
 };
 
 // Функція для застосування режиму
@@ -565,19 +565,19 @@ function applyDisplayMode() {
     header.classList.toggle('pro-mode', config.PRO_MODE);
   }
   
-  // Stats
+  // Stats - автоматично ховати в PRO режимі
   const stats = document.getElementById('stats');
   if (stats) {
     stats.classList.toggle('hidden', config.PRO_MODE || !config.SHOW_STATS);
   }
   
-  // Debug
+  // Debug - автоматично ховати в PRO режимі
   const debug = document.getElementById('debug');
   if (debug) {
     debug.classList.toggle('hidden', config.PRO_MODE || !config.SHOW_DEBUG);
   }
   
-  // Reconnect banner
+  // Reconnect banner - автоматично ховати в PRO режимі
   const banner = document.getElementById('reconnect-banner');
   if (banner) {
     banner.classList.toggle('hidden', config.PRO_MODE || !config.SHOW_RECONNECT_BANNER);
@@ -616,7 +616,7 @@ let configProxy = new Proxy(window.APP_CONFIG, {
 window.APP_CONFIG = configProxy;
 
 console.log('💡 PRO MODE CONTROLS:');
-console.log('   APP_CONFIG.PRO_MODE = true     // Увімкнути PRO режим');
+console.log('   APP_CONFIG.PRO_MODE = true     // Увімкнути PRO режим (auto-hide stats/debug)');
 console.log('   APP_CONFIG.PRO_MODE = false    // Вимкнути PRO режим');
 console.log('   APP_CONFIG.SHOW_CONFIDENCE = true/false');
 console.log('   APP_CONFIG.SHOW_RSSI = true/false');
@@ -931,7 +931,7 @@ function handleMasterData(masterId, data) {
   }
 }
 
-// ================= PROCESS =================
+// ================= PROCESS (БЕЗ ЗМІН - занадто довгий, копіюй з попередньої версії) =================
 function processAndRender() {
   try {
     const now = Date.now();
@@ -1149,7 +1149,7 @@ function calculateStats(rooms) {
   return { roomCount, tableCount, activeCount, masterCount };
 }
 
-// ================= RENDER =================
+// ================= RENDER З ЗАМІНОЮ _ НА ПРОБІЛ =================
 function render(rooms, roomCount, tableCount, activeCount, masterCount) {
   try {
     const config = window.APP_CONFIG;
@@ -1183,10 +1183,13 @@ function render(rooms, roomCount, tableCount, activeCount, masterCount) {
         
         tables.sort((a, b) => parseInt(a.id) - parseInt(b.id));
         
+        // ✅ ЗАМІНИТИ _ НА ПРОБІЛ
+        const displayRoomName = roomName.replace(/_/g, ' ');
+        
         html += `
         <div class="room-card ${config.PRO_MODE ? 'pro-mode' : ''} ${isActive ? '' : 'offline'}">
           <div class="room-header ${config.PRO_MODE ? 'pro-mode' : ''}">
-            <div class="room-title ${config.PRO_MODE ? 'pro-mode' : ''}">${roomName}</div>
+            <div class="room-title ${config.PRO_MODE ? 'pro-mode' : ''}">${displayRoomName}</div>
             <div class="room-status ${isActive ? 'online' : 'offline'} ${(config.PRO_MODE || !config.SHOW_ROOM_STATUS) ? 'hidden' : ''}">
               ${isActive ? 'Online' : 'Offline'}
             </div>
