@@ -30,7 +30,7 @@ body {
   gap: 15px;
 }
 
-.header.pro-mode {
+body.pro-mode .header {
   padding: 30px 20px;
   border-bottom: 2px solid #333;
 }
@@ -41,7 +41,7 @@ body {
   color: #fff;
 }
 
-.header.pro-mode h1 {
+body.pro-mode .header h1 {
   font-size: 32px;
   font-weight: 300;
   letter-spacing: 2px;
@@ -73,7 +73,7 @@ body {
 }
 
 /* Приховати в PRO режимі */
-.header.pro-mode .status-badge {
+body.pro-mode .status-badge {
   display: none;
 }
 
@@ -88,7 +88,7 @@ body {
   flex-wrap: wrap;
 }
 
-.stats.hidden {
+body.pro-mode .stats {
   display: none;
 }
 
@@ -118,10 +118,10 @@ body {
   gap: 20px;
 }
 
-.rooms-container.pro-mode {
+body.pro-mode .rooms-container {
   padding: 40px;
   gap: 40px;
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
 }
 
@@ -132,7 +132,7 @@ body {
   overflow: hidden;
 }
 
-.room-card.pro-mode {
+body.pro-mode .room-card {
   background: transparent;
   border: none;
   border-radius: 0;
@@ -151,7 +151,7 @@ body {
   align-items: center;
 }
 
-.room-header.pro-mode {
+body.pro-mode .room-header {
   background: transparent;
   padding: 0 0 20px 0;
   border-bottom: 2px solid #333;
@@ -164,7 +164,7 @@ body {
   color: #fff;
 }
 
-.room-title.pro-mode {
+body.pro-mode .room-title {
   font-size: 28px;
   font-weight: 300;
   letter-spacing: 3px;
@@ -189,7 +189,7 @@ body {
 }
 
 /* Приховати в PRO режимі */
-.room-status.hidden {
+body.pro-mode .room-status {
   display: none;
 }
 
@@ -197,19 +197,19 @@ body {
   padding: 20px;
 }
 
-.room-body.pro-mode {
+body.pro-mode .room-body {
   padding: 0;
 }
 
 /* ========== TABLES GRID ========== */
 .tables-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 12px;
 }
 
-.tables-grid.pro-mode {
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+body.pro-mode .tables-grid {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 20px;
 }
 
@@ -221,14 +221,20 @@ body {
   text-align: center;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  aspect-ratio: 1 / 1; /* ✅ КВАДРАТНИЙ */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
-.table-item.pro-mode {
+body.pro-mode .table-item {
   background: #111;
   border: 3px solid #222;
   border-radius: 20px;
-  padding: 30px 20px;
+  padding: 20px;
   box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  aspect-ratio: 1 / 1; /* ✅ КВАДРАТНИЙ */
 }
 
 .table-item:hover {
@@ -236,7 +242,7 @@ body {
   transform: translateY(-2px);
 }
 
-.table-item.pro-mode:hover {
+body.pro-mode .table-item:hover {
   transform: translateY(-4px) scale(1.02);
   box-shadow: 0 8px 12px rgba(0,0,0,0.4);
 }
@@ -247,7 +253,7 @@ body {
   background: #0f1f13;
 }
 
-.table-item.pro-mode.active {
+body.pro-mode .table-item.active {
   border-color: #22c55e;
   background: #0a1f0f;
   box-shadow: 0 4px 20px rgba(34, 197, 94, 0.2);
@@ -258,7 +264,7 @@ body {
   background: #1a1107;
 }
 
-.table-item.pro-mode.warning {
+body.pro-mode .table-item.warning {
   border-color: #f59e0b;
   background: #1a1207;
   box-shadow: 0 4px 20px rgba(245, 158, 11, 0.2);
@@ -269,7 +275,7 @@ body {
   background: #1a0808;
 }
 
-.table-item.pro-mode.inactive {
+body.pro-mode .table-item.inactive {
   border-color: #ef4444;
   background: #1a0808;
   box-shadow: 0 4px 20px rgba(239, 68, 68, 0.2);
@@ -281,7 +287,7 @@ body {
   opacity: 0.6;
 }
 
-.table-item.pro-mode.stale {
+body.pro-mode .table-item.stale {
   border-color: #555;
   opacity: 0.4;
 }
@@ -299,20 +305,20 @@ body {
   border-radius: 8px;
 }
 
-.table-confidence.hidden {
+body.pro-mode .table-confidence {
   display: none;
 }
 
 /* TABLE ID */
 .table-id {
-  font-size: 20px;
+  font-size: 28px;
   font-weight: 700;
   color: #fff;
   margin-bottom: 4px;
 }
 
-.table-id.pro-mode {
-  font-size: 48px;
+body.pro-mode .table-id {
+  font-size: 56px;
   font-weight: 300;
   margin-bottom: 0;
   letter-spacing: 2px;
@@ -339,9 +345,9 @@ body {
 }
 
 /* Приховати деталі в PRO режимі */
-.table-rssi.hidden,
-.table-status.hidden,
-.table-time.hidden {
+body.pro-mode .table-rssi,
+body.pro-mode .table-status,
+body.pro-mode .table-time {
   display: none;
 }
 
@@ -352,7 +358,7 @@ body {
   color: #555;
 }
 
-.empty-state.pro-mode {
+body.pro-mode .empty-state {
   padding: 80px 40px;
 }
 
@@ -362,7 +368,7 @@ body {
   opacity: 0.3;
 }
 
-.empty-state-icon.pro-mode {
+body.pro-mode .empty-state-icon {
   font-size: 72px;
 }
 
@@ -370,7 +376,7 @@ body {
   font-size: 14px;
 }
 
-.empty-state-text.pro-mode {
+body.pro-mode .empty-state-text {
   font-size: 18px;
   font-weight: 300;
   letter-spacing: 1px;
@@ -413,8 +419,8 @@ body {
   display: block;
 }
 
-.reconnect-banner.hidden {
-  display: none;
+body.pro-mode .reconnect-banner {
+  display: none !important;
 }
 
 /* ========== DEBUG ========== */
@@ -429,9 +435,10 @@ body {
   font-size: 11px;
   max-width: 300px;
   color: #888;
+  z-index: 1000;
 }
 
-#debug.hidden {
+body.pro-mode #debug {
   display: none;
 }
 
@@ -441,7 +448,7 @@ body {
     font-size: 20px;
   }
   
-  .header.pro-mode h1 {
+  body.pro-mode .header h1 {
     font-size: 24px;
   }
   
@@ -454,20 +461,24 @@ body {
   }
   
   .tables-grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     gap: 10px;
   }
   
-  .tables-grid.pro-mode {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  body.pro-mode .tables-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 15px;
   }
   
-  .table-id.pro-mode {
-    font-size: 36px;
+  .table-id {
+    font-size: 24px;
   }
   
-  .room-title.pro-mode {
+  body.pro-mode .table-id {
+    font-size: 40px;
+  }
+  
+  body.pro-mode .room-title {
     font-size: 20px;
   }
   
@@ -534,16 +545,7 @@ body {
 <script>
 // ================= 🎨 CONFIG - ЗМІНЮЙ ЧЕРЕЗ CONSOLE =================
 window.APP_CONFIG = {
-  PRO_MODE: false,           // true = чистий дизайн (auto-hide stats/debug), false = показати все
-  SHOW_CONFIDENCE: false,    // Показувати відсотки впевненості
-  SHOW_RSSI: false,          // Показувати dBm
-  SHOW_STATUS_TEXT: false,   // Показувати текст статусу
-  SHOW_TIME: false,          // Показувати час
-  SHOW_STATS: true,          // Показувати верхню статистику (ignored in PRO mode)
-  SHOW_ROOM_STATUS: true,    // Показувати Online/Offline badge
-  SHOW_CONNECTION: true,     // Показувати статус підключення
-  SHOW_RECONNECT_BANNER: true, // Показувати reconnect banner
-  SHOW_DEBUG: true           // Показувати debug panel (ignored in PRO mode)
+  PRO_MODE: false  // true = чистий дизайн (додає клас "pro-mode" до body)
 };
 
 // Функція для застосування режиму
@@ -552,6 +554,13 @@ function applyDisplayMode() {
   
   console.log('🎨 Applying display mode:', config.PRO_MODE ? 'PRO' : 'DEV');
   
+  // ✅ ПРОСТО ДОДАТИ/ВИДАЛИТИ КЛАС З BODY
+  if (config.PRO_MODE) {
+    document.body.classList.add('pro-mode');
+  } else {
+    document.body.classList.remove('pro-mode');
+  }
+  
   // Update debug mode indicator
   const debugMode = document.getElementById('debug-mode');
   if (debugMode) {
@@ -559,49 +568,7 @@ function applyDisplayMode() {
     debugMode.style.color = config.PRO_MODE ? '#a855f7' : '#22c55e';
   }
   
-  // Header
-  const header = document.getElementById('header');
-  if (header) {
-    header.classList.toggle('pro-mode', config.PRO_MODE);
-  }
-  
-  // Stats - автоматично ховати в PRO режимі
-  const stats = document.getElementById('stats');
-  if (stats) {
-    stats.classList.toggle('hidden', config.PRO_MODE || !config.SHOW_STATS);
-  }
-  
-  // Debug - автоматично ховати в PRO режимі
-  const debug = document.getElementById('debug');
-  if (debug) {
-    debug.classList.toggle('hidden', config.PRO_MODE || !config.SHOW_DEBUG);
-  }
-  
-  // Reconnect banner - автоматично ховати в PRO режимі
-  const banner = document.getElementById('reconnect-banner');
-  if (banner) {
-    banner.classList.toggle('hidden', config.PRO_MODE || !config.SHOW_RECONNECT_BANNER);
-  }
-  
-  // Connection status badge
-  const status = document.getElementById('status');
-  if (status) {
-    status.style.display = (config.PRO_MODE || !config.SHOW_CONNECTION) ? 'none' : 'inline-flex';
-  }
-  
-  // Rooms container
-  const roomsContainer = document.getElementById('rooms');
-  if (roomsContainer) {
-    roomsContainer.classList.toggle('pro-mode', config.PRO_MODE);
-  }
-  
-  // Trigger re-render
-  if (lastCachedRooms) {
-    const stats = calculateStats(lastCachedRooms);
-    render(lastCachedRooms, stats.roomCount, stats.tableCount, stats.activeCount, stats.masterCount);
-  }
-  
-  console.log('✅ Display mode applied');
+  console.log('✅ Display mode applied - body class:', document.body.className);
 }
 
 // Слухати зміни конфігу
@@ -615,13 +582,11 @@ let configProxy = new Proxy(window.APP_CONFIG, {
 });
 window.APP_CONFIG = configProxy;
 
-console.log('💡 PRO MODE CONTROLS:');
-console.log('   APP_CONFIG.PRO_MODE = true     // Увімкнути PRO режим (auto-hide stats/debug)');
-console.log('   APP_CONFIG.PRO_MODE = false    // Вимкнути PRO режим');
-console.log('   APP_CONFIG.SHOW_CONFIDENCE = true/false');
-console.log('   APP_CONFIG.SHOW_RSSI = true/false');
-console.log('   APP_CONFIG.SHOW_STATUS_TEXT = true/false');
-console.log('   APP_CONFIG.SHOW_TIME = true/false');
+console.log('💡 PRO MODE CONTROL:');
+console.log('   APP_CONFIG.PRO_MODE = true     // Увімкнути PRO режим (додає class="pro-mode" до body)');
+console.log('   APP_CONFIG.PRO_MODE = false    // Вимкнути PRO режим (видаляє клас)');
+console.log('');
+console.log('📝 Або в HTML просто додай/видали: <body class="pro-mode">');
 
 // ================= GLOBAL ERROR HANDLER =================
 window.addEventListener('error', (event) => {
@@ -730,7 +695,7 @@ connectedRef.on('value', (snap) => {
       debugConn.textContent = 'connected';
       debugConn.style.color = '#22c55e';
     }
-    if (reconnectBanner && window.APP_CONFIG.SHOW_RECONNECT_BANNER && !window.APP_CONFIG.PRO_MODE) {
+    if (reconnectBanner) {
       reconnectBanner.classList.remove('show');
     }
   } else {
@@ -738,7 +703,7 @@ connectedRef.on('value', (snap) => {
     
     if (hasReceivedData) {
       updateStatus('connecting', 'Reconnecting...');
-      if (reconnectBanner && window.APP_CONFIG.SHOW_RECONNECT_BANNER && !window.APP_CONFIG.PRO_MODE) {
+      if (reconnectBanner) {
         reconnectBanner.classList.add('show');
       }
     } else {
@@ -931,7 +896,7 @@ function handleMasterData(masterId, data) {
   }
 }
 
-// ================= PROCESS (БЕЗ ЗМІН - занадто довгий, копіюй з попередньої версії) =================
+// ================= PROCESS (копіюй з попередньої версії - занадто довгий) =================
 function processAndRender() {
   try {
     const now = Date.now();
@@ -1132,29 +1097,10 @@ function processAndRender() {
   }
 }
 
-// ================= CALCULATE STATS =================
-function calculateStats(rooms) {
-  let roomCount = Object.keys(rooms).length;
-  let tableCount = 0;
-  let activeCount = 0;
-  let masterCount = 0;
-  
-  for (let roomName in rooms) {
-    let room = rooms[roomName];
-    if (room.active) masterCount++;
-    tableCount += room.tables.length;
-    activeCount += room.tables.filter(t => t.status === 'active').length;
-  }
-  
-  return { roomCount, tableCount, activeCount, masterCount };
-}
-
-// ================= RENDER З ЗАМІНОЮ _ НА ПРОБІЛ =================
+// ================= RENDER (СПРОЩЕНИЙ - БЕЗ КЛАСІВ) =================
 function render(rooms, roomCount, tableCount, activeCount, masterCount) {
   try {
-    const config = window.APP_CONFIG;
-    
-    console.log(`🎨 Rendering ${roomCount} rooms... (PRO: ${config.PRO_MODE})`);
+    console.log(`🎨 Rendering ${roomCount} rooms...`);
     
     if (!rooms || Object.keys(rooms).length === 0) {
       if (!hasReceivedData && !hasCachedData) {
@@ -1187,23 +1133,23 @@ function render(rooms, roomCount, tableCount, activeCount, masterCount) {
         const displayRoomName = roomName.replace(/_/g, ' ');
         
         html += `
-        <div class="room-card ${config.PRO_MODE ? 'pro-mode' : ''} ${isActive ? '' : 'offline'}">
-          <div class="room-header ${config.PRO_MODE ? 'pro-mode' : ''}">
-            <div class="room-title ${config.PRO_MODE ? 'pro-mode' : ''}">${displayRoomName}</div>
-            <div class="room-status ${isActive ? 'online' : 'offline'} ${(config.PRO_MODE || !config.SHOW_ROOM_STATUS) ? 'hidden' : ''}">
+        <div class="room-card ${isActive ? '' : 'offline'}">
+          <div class="room-header">
+            <div class="room-title">${displayRoomName}</div>
+            <div class="room-status ${isActive ? 'online' : 'offline'}">
               ${isActive ? 'Online' : 'Offline'}
             </div>
           </div>
-          <div class="room-body ${config.PRO_MODE ? 'pro-mode' : ''}">`;
+          <div class="room-body">`;
         
         if (tables.length === 0) {
           html += `
-            <div class="empty-state ${config.PRO_MODE ? 'pro-mode' : ''}">
-              <div class="empty-state-icon ${config.PRO_MODE ? 'pro-mode' : ''}">📭</div>
-              <div class="empty-state-text ${config.PRO_MODE ? 'pro-mode' : ''}">No tables detected</div>
+            <div class="empty-state">
+              <div class="empty-state-icon">📭</div>
+              <div class="empty-state-text">No tables detected</div>
             </div>`;
         } else {
-          html += `<div class="tables-grid ${config.PRO_MODE ? 'pro-mode' : ''}">`;
+          html += '<div class="tables-grid">';
           
           tables.forEach(table => {
             let confidencePercent = Math.round(table.confidence * 100);
@@ -1213,12 +1159,12 @@ function render(rooms, roomCount, tableCount, activeCount, masterCount) {
                        `${Math.floor(table.last_seen/3600000)}h`;
             
             html += `
-            <div class="table-item ${config.PRO_MODE ? 'pro-mode' : ''} ${table.status}">
-              <div class="table-confidence ${(!config.SHOW_CONFIDENCE || config.PRO_MODE) ? 'hidden' : ''}">${confidencePercent}%</div>
-              <div class="table-id ${config.PRO_MODE ? 'pro-mode' : ''}">${table.id}</div>
-              <div class="table-rssi ${(!config.SHOW_RSSI || config.PRO_MODE) ? 'hidden' : ''}">${table.rssi} dBm</div>
-              <div class="table-status ${(!config.SHOW_STATUS_TEXT || config.PRO_MODE) ? 'hidden' : ''}">${table.status}</div>
-              <div class="table-time ${(!config.SHOW_TIME || config.PRO_MODE) ? 'hidden' : ''}">${time}</div>
+            <div class="table-item ${table.status}">
+              <div class="table-confidence">${confidencePercent}%</div>
+              <div class="table-id">${table.id}</div>
+              <div class="table-rssi">${table.rssi} dBm</div>
+              <div class="table-status">${table.status}</div>
+              <div class="table-time">${time}</div>
             </div>`;
           });
           
